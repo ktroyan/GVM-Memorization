@@ -1,3 +1,12 @@
+chromedriver_win32/
+gvm_mem_scraping_venv/
+
+dummy.py
+artists_urls.csv
+mem_data_cleaned.csv
+mem_data.csv
+artworks_data.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

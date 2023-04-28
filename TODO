@@ -1,0 +1,2 @@
+Get the artists available from the website https://www.nga.gov/collection/collection-search.html
+Filter by available_img_only and scrape the artworks of the artists collected.

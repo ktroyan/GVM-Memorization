@@ -1,0 +1,5 @@
+selenium
+numpy
+pandas
+opencv-python
+requests
