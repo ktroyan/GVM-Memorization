@@ -7,6 +7,19 @@ mem_data_cleaned.csv
 mem_data.csv
 artworks_data.csv
 
+*.jpg
+
+googleart_art_data.csv
+googleart_art_data_final.csv
+googleart_artists.csv
+
+nga_collection_artists_urls.csv
+nga_collection
+
+artstation_art_data.csv
+artstation_art_data_final.csv
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
