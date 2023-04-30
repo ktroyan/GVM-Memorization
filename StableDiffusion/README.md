@@ -23,7 +23,7 @@ $ cd Jupyter-on-Euler-or-Leonhard-Open/
 $ chmod 755 start_jupyter_nb.sh
 ```
 
-2. Make the script `commands.sh` executable and run it. It will load necessary modules, and send the `sd_diffusers.ipynb` to the remote.
+2. Change the `USERNAME` variable in `commands.sh`. Make the script executable and run it. It will load necessary modules, and send `sd_diffusers.ipynb` to the Euler.
 ```
 $ chmode 755 commands.sh
 $ ./commands.sh
