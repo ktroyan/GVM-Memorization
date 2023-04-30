@@ -19,7 +19,6 @@ The following guide is based on the tutorial [Jupyter on Euler](https://gitlab.e
 
 - Aferwards, change its permissions to make it executable
 ```
-$ cd Jupyter-on-Euler-or-Leonhard-Open/
 $ chmod 755 start_jupyter_nb.sh
 ```
 
