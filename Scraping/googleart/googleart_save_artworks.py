@@ -5,7 +5,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, TimeoutException, NoSuchWindowException, StaleElementReferenceException
+from selenium.common.exceptions import InvalidArgumentException, NoSuchElementException, ElementClickInterceptedException, TimeoutException, NoSuchWindowException, StaleElementReferenceException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -47,7 +47,7 @@ def crop_image(image, original_dims, new_dims, intrisic_dims):
     image = image.crop((0, 0, new_width, new_height))
     return image
 
-def start_scraping(driver, art_df):
+def start_scraping(driver, data_writer, art_df):
 
     wait_driver = WebDriverWait(driver, 10)
 
@@ -67,6 +67,7 @@ def start_scraping(driver, art_df):
     index = 0
 
     for i in range(len(art_df)):
+        if i == 45: break
         print("Current artist is: ", art_df['artist_name'].iloc[i])
 
         if previous_artist == art_df['artist_name'].iloc[i]:
@@ -83,7 +84,11 @@ def start_scraping(driver, art_df):
             continue
 
         artwork_url = art_df['artwork_url'].iloc[i]
-        get_webpage(driver, artwork_url)
+        try:
+            get_webpage(driver, artwork_url)
+        except InvalidArgumentException:
+            print("Invalid URL. Skipping to the next artwork.")
+            continue
 
         # Save the date of the artwork, just in case
         try:
@@ -91,32 +96,44 @@ def start_scraping(driver, art_df):
             artwork_date = driver.find_element(by=By.XPATH, value=".//span[@class='QtzOu']")
             art_df['artwork_date'].iloc[i] = artwork_date.text
             print(artwork_date.text)
-        except:
+        except NoSuchElementException:
             print("No artwork date found. Skipping to the next artwork.")
             continue
 
         # Given the image url, we can do the following to dl it:
-        image_dl_link_element = driver.find_element(by=By.XPATH, value=".//img[@class='XkWAb-LmsqOc XkWAb-Iak2Lc']")
-        image_dl_url = str(image_dl_link_element.get_attribute("src"))
-        art_df['image_url'].iloc[i] = image_dl_url
+        try:
+            image_dl_link_element = driver.find_element(by=By.XPATH, value=".//img[@class='XkWAb-LmsqOc XkWAb-Iak2Lc']")
+            image_dl_url = str(image_dl_link_element.get_attribute("src"))
+            art_df['image_url'].iloc[i] = image_dl_url
+        except NoSuchElementException:
+            print("No image link found. Skipping to the next artwork.")
+            continue
         
         # Get image from blob bytes
         bytes_from_blob = get_file_content_chrome(driver, image_dl_url)
         image = Image.open(BytesIO(bytes_from_blob))
 
         # Get the intrisic dimension (number of pixels) of the image
-        image_original_dims_element = driver.find_element(by=By.XPATH, value=".//div[@class='jyCOCf WtuUG']/div[@class='MJA7d DgsXq tpfJYe pyGVEf']/div[@class='ScDhKc']/div[@class='XkWAb-GfpNfc']/div[@class='XkWAb-cYRDff']/img[@class='XkWAb-LmsqOc XkWAb-Iak2Lc']")
-        original_width = int(image_original_dims_element.get_attribute("style").split("width: ")[1].split("px")[0])
-        original_height = int(image_original_dims_element.get_attribute("style").split("height: ")[1].split("px")[0])
-        original_dims = (original_width, original_height)
-        print(original_dims)
+        try:
+            image_original_dims_element = driver.find_element(by=By.XPATH, value=".//div[@class='jyCOCf WtuUG']/div[@class='MJA7d DgsXq tpfJYe pyGVEf']/div[@class='ScDhKc']/div[@class='XkWAb-GfpNfc']/div[@class='XkWAb-cYRDff']/img[@class='XkWAb-LmsqOc XkWAb-Iak2Lc']")
+            original_width = int(image_original_dims_element.get_attribute("style").split("width: ")[1].split("px")[0])
+            original_height = int(image_original_dims_element.get_attribute("style").split("height: ")[1].split("px")[0])
+            original_dims = (original_width, original_height)
+            # print(original_dims)
+        except NoSuchElementException:
+            print("No original dimensions found. Skipping to the next artwork.")
+            continue
 
         # Get the new dimension (number of pixels) of the image
-        image_dims_element = driver.find_element(by=By.XPATH, value=".//div[@class='jyCOCf WtuUG']/div[@class='MJA7d DgsXq tpfJYe pyGVEf']/div[@class='ScDhKc']/div[@class='XkWAb-GfpNfc']/div[@class='XkWAb-cYRDff']")
-        new_width = int(image_dims_element.get_attribute("style").split("width: ")[1].split("px")[0])
-        new_height = int(image_dims_element.get_attribute("style").split("height: ")[1].split("px")[0])
-        new_dims = (new_width, new_height)
-        print(new_dims)
+        try:
+            image_dims_element = driver.find_element(by=By.XPATH, value=".//div[@class='jyCOCf WtuUG']/div[@class='MJA7d DgsXq tpfJYe pyGVEf']/div[@class='ScDhKc']/div[@class='XkWAb-GfpNfc']/div[@class='XkWAb-cYRDff']")
+            new_width = int(image_dims_element.get_attribute("style").split("width: ")[1].split("px")[0])
+            new_height = int(image_dims_element.get_attribute("style").split("height: ")[1].split("px")[0])
+            new_dims = (new_width, new_height)
+            # print(new_dims)
+        except NoSuchElementException:
+            print("No new dimensions found. Skipping to the next artwork.")
+            continue
 
         # Get the intrisic dimension (number of pixels) of the image
         intrisic_dims = (512, 512)  # hard-coded as (apparently) not available from the webpage
@@ -124,7 +141,7 @@ def start_scraping(driver, art_df):
         image = crop_image(image, original_dims, new_dims, intrisic_dims)
 
         index += 1
-        image_path = f'./Scraping/googleart/Data/image{index}.jpg'
+        image_path = f'./Scraping/googleart/Data/artworks_images/image{index}.jpg'
         
         image.save(image_path)
 
@@ -132,6 +149,9 @@ def start_scraping(driver, art_df):
 
         print(f"Saved artwork {index} called \"{art_df['artwork_title'].iloc[i]}\" from {art_df['artist_name'].iloc[i]}")
         print("Image path: ", image_path)
+
+        # Save the data sample to the csv file
+        data_writer.writerow([art_df['artist_name'].iloc[i], art_df['artwork_title'].iloc[i], art_df['artwork_date'].iloc[i], art_df['artwork_url'].iloc[i], art_df['image_url'].iloc[i], art_df['image_path'].iloc[i]])
 
     return art_df
 
@@ -144,15 +164,20 @@ if __name__ == "__main__":
     # get the driver
     driver = ga_utility.get_driver()
 
-    # open file and create writer to save the data
     path_art_file = "./Scraping/googleart/Data/googleart_art_data.csv"
-    art_csv_file = open(path_art_file, 'a', encoding="utf-8")
+    path_final_art_file = "./Scraping/googleart/Data/googleart_art_data_final.csv"
+
+    # open google_art_data.csv file in pandas dataframe
+    googleart_data_df = pd.read_csv(path_art_file, sep='\t', encoding='utf-8')
+
+    # open file and create writer to save the data
+    art_csv_file = open(path_final_art_file, 'a', encoding="utf-8")
     art_writer = csv.writer(art_csv_file, delimiter="\t", lineterminator="\n")
 
-    artists_row_header = ['artist_name', 'artwork_title', 'artwork_url']
+    artists_row_header = ['artist_name', 'artwork_title', 'artwork_date', 'artwork_url', 'image_url', 'image_path']
 
     # write header of the csv file if there is no header yet
-    with open(path_art_file, "r") as f:
+    with open(path_final_art_file, "r") as f:
         try:
             data_file_has_header = csv.Sniffer().has_header(f.read(1024))
         except csv.Error:  # file is empty
@@ -162,13 +187,10 @@ if __name__ == "__main__":
         # write header of the csv file
         art_writer.writerow(artists_row_header)
 
-    # open google_art_data.csv file in pandas dataframe
-    googleart_data_df = pd.read_csv(path_art_file, sep='\t', encoding='utf-8')
 
     # start scraping
-    art_df_final = start_scraping(driver, googleart_data_df)
-    path_art_file = "./Scraping/googleart/Data/googleart_art_data_final.csv"
-    art_df_final.to_csv(path_art_file, sep="\t", encoding="utf-8", index=False)
+    art_df_final = start_scraping(driver, art_writer, googleart_data_df)
+    # art_df_final.to_csv(path_final_art_file, sep="\t", encoding="utf-8", index=False) # uncomment this if we want a dataset with all the artists even though scraping is incomplete 
 
     print(art_df_final)
 
@@ -181,7 +203,6 @@ if __name__ == "__main__":
 
     # time spent for the full scraping run
     end_time = time.time()
-    print("Finished scraping GoogleArt")
     print("Time elapsed for the scraping run: ",
     int(end_time - start_time) // 60, " minutes and ",
     int(end_time - start_time) % 60, " seconds")
