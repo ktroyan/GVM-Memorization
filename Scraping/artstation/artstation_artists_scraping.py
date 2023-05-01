@@ -1,4 +1,4 @@
-import googleart_utility as ga_utility
+import artstation_utility as ga_utility
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -23,47 +23,57 @@ def go_to_search_artits_page(driver, wait_driver):
 	search_box_element.click()
 
 	time.sleep(1)
-
+	#todo fix this
 	artist_search_box_element = driver.find_element(
-    by=By.XPATH, value=".//input[@href='/search/artists']")
+    by=By.XPATH, value=".//a[@href='/search/artists']")
 
 	artist_search_box_element.click()
 
 	time.sleep(1)
 
 def add_followers_filter(driver, wait_driver, n_followers):
+	wait_driver.until(
+    EC.visibility_of_element_located((By.XPATH, ".//button[text()='Add filter']")))
 	add_filter_box_element = driver.find_element(
-	by=By.XPATH, value=".//button[text()='Click me']")
+	by=By.XPATH, value="//*[contains(text(), 'Add filter')]")
 
 	add_filter_box_element.click()
 
 	time.sleep(1)
 
-	follower_box_element = driver.find_element(
-	by=By.XPATH, value=".//li[@id='select2-zevd-result-jf1s-followers_count']")
-
-	follower_box_element.click()
+	search_bar_element = driver.find_element(
+	by=By.XPATH, value=".//input[@placeholder='Select filter']")
+	search_bar_element.send_keys("Followers")
+	
+	#click enter button
+	search_bar_element.send_keys(Keys.ENTER)
 
 	time.sleep(1)
 
-	more_than_box_element = driver.find_element(
-	by=By.XPATH, value=".//li[@id='select2-3rs3-result-6kti-more_than']")
-
-	more_than_box_element.click()
+	search_bar_element = driver.find_element(
+	by=By.XPATH, value=".//input[@placeholder='Select filter']")
+	search_bar_element.send_keys("More than")
+	
+	#click enter button
+	search_bar_element.send_keys(Keys.ENTER)
 
 	time.sleep(1)
 
 	follower_input_field = driver.find_element(
-	by=By.XPATH, value=".//input[@id='form-control search-filters-control-input ng-pristine ng-valid ng-touched']")
+	by=By.XPATH, value=".//input[@placeholder='Term']")
 
 	follower_input_field.send_keys(n_followers)
+	#follower_input_field.send_keys(Keys.ENTER)
 
-	time.sleep(1)
+	#refresh the page to update the artists
+	#driver.refresh()
+
+	time.sleep(10000)
 
 
 
 def start_scraping(driver, data_writer):
-	googleart_artists_webpage = "https://www.artstation.com"
+	googleart_artists_webpage = "https://www.artstation.com/search/artists"
 
 	n_followers = 10000
 
@@ -71,7 +81,7 @@ def start_scraping(driver, data_writer):
 
 	wait_driver = WebDriverWait(driver, 20)
 
-	go_to_search_artits_page(driver,wait_driver)
+	#go_to_search_artits_page(driver,wait_driver)
 
 	add_followers_filter(driver,wait_driver,n_followers)
 	
