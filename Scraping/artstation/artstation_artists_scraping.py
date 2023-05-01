@@ -14,7 +14,7 @@ import csv
 
 import requests
 
-def go_to_search_artits_page(driver, wait_driver):
+def go_to_search_artists_page(driver, wait_driver):
 	wait_driver.until(
     EC.visibility_of_element_located((By.XPATH, ".//input[@class='autocomplete-input main-menu-search-input']")))
 	search_box_element = driver.find_element(
@@ -81,7 +81,7 @@ def start_scraping(driver, data_writer):
 
 	wait_driver = WebDriverWait(driver, 20)
 
-	#go_to_search_artits_page(driver,wait_driver)
+	#go_to_search_artists_page(driver,wait_driver)
 
 	add_followers_filter(driver,wait_driver,n_followers)
 	
