@@ -55,9 +55,6 @@ def start_scraping(driver, data_writer):
 
 		scroll_down(driver)
 
-		# TODO: IF needed, scroll laterally right to get more artworks of the artist on the webpage
-		# ...
-
 		artworks_mosaic_elements = driver.find_elements(by=By.XPATH, value=".//div[@class='wcg9yf']")
 
 		for j, artworks_mosaic in enumerate(artworks_mosaic_elements):
@@ -120,7 +117,6 @@ if __name__ == "__main__":
 
 	# time spent for the full scraping run
 	end_time = time.time()
-	print("Finished scraping TripAdvisor")
 	print("Time elapsed for the scraping run: ",
 	int(end_time - start_time) // 60, " minutes and ",
 	int(end_time - start_time) % 60, " seconds")
