@@ -3,24 +3,27 @@ reconnect_info
 chromedriver_win32/
 gvm_mem_scraping_venv/
 
+*.jpg
+
+# for Google Arts & Culture
+# googleart_art_data.csv
+# googleart_art_data_final.csv
+# googleart_artists.csv
+
+
+# for ArtStation
+artstation_art_data.csv
+artstation_art_data_final.csv
+
+
+# for NGA Collection
 dummy.py
 artists_urls.csv
 mem_data_cleaned.csv
 mem_data.csv
 artworks_data.csv
-
-*.jpg
-
-googleart_art_data.csv
-googleart_art_data_final.csv
-googleart_artists.csv
-
 nga_collection_artists_urls.csv
 nga_collection
-
-artstation_art_data.csv
-artstation_art_data_final.csv
-
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

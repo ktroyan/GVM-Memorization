@@ -67,7 +67,6 @@ def start_scraping(driver, data_writer, art_df):
     index = 0
 
     for i in range(len(art_df)):
-        if i == 45: break
         print("Current artist is: ", art_df['artist_name'].iloc[i])
 
         if previous_artist == art_df['artist_name'].iloc[i]:
