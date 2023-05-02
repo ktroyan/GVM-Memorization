@@ -6,35 +6,40 @@ The following guide is based on the tutorial [Jupyter on Euler](https://gitlab.e
 ## Installation
  
 
-1. In `start_jupyter_nb.sh` change following variables or pass them as arguments to the script:
+1. Run the script `commands.sh`. It will load necessary modules, and install the required packages if they are not installed yet.  
 
-`JNB_USERNAME` - your username on Euler (line 74)  
-`JNB_NUM_CPU` - number of CPUs you want to use (line 77). Set it to 4.  
-`JNB_RUN_TIME` - runtime in hours (line 80).  
-`JNB_MEM_PER_CPU_CORE` - memory per CPU core in MB (line 83). Set it to 4096.  
-`JNB_NUM_GPU` - number of GPUs you want to use (line 86). Set it to 1.  
-`JNB_WAITING_INTERVAL` - waiting interval in seconds (line 89). Set it to 10.  
-`JNB_SSH_KEY_PATH` - path to your ssh key (line 92).  
-`JNB_GPU_MEM` - memory per GPU in MB (line 121). Set it to "20g".
-
-- Aferwards, change its permissions to make it executable
+Here `$USERNAME` is your username on Euler server.
 ```
-$ cd Jupyter-on-Euler-or-Leonhard-Open/
-$ chmod 755 start_jupyter_nb.sh
-```
-
-2. Change the `USERNAME` variable in `commands.sh`. Make the script executable and run it. It will load necessary modules, and send `sd_diffusers.ipynb` to the Euler.
-```
+$ USERNAME=your_username
 $ chmode 755 commands.sh
-$ ./commands.sh
+$ ./commands.sh $USERNAME
 ```
 
-3. Run the script. 
+
+2. If you need to send a file to Euler, use the following command:
+
+Here `$USERNAME` is your username on Euler, and `$DIRECTORY` is the directory where you want to send the file.
+
+In step 1, you have created a directory `generative_models` in the home directory. So, we will send the file to this directory.
+
 ```
-$ ./start_jupyter_nb.sh
+$ USERNAME=your_username
+$ DIRECTORY=generative_models
+$ scp sd_diffusers.ipynb $USERNAME@euler:/cluster/home/$USERNAME/$DIRECTORY
 ```
+
+
+3. In `jnb_config` change necessary variables. In particular, you need to change only `JNB_USERNAME` variable.
+
+4. Make script `start_jupyter_nb.sh` executable and run it using the configuration file `jnb_config`. 
+
+```
+$ chmod 755 start_jupyter_nb.sh
+$ ./start_jupyter_nb.sh -c jnb_config
+```
+
 It will output something like this:
 ```
-Waiting for jupyter notebook to start, sleep for 60 sec
+Waiting for jupyter notebook to start, sleep for 10 sec
 ```
 That means that the script is waiting for the jupyter notebook to start. It will take some time, so be patient. After the jupyter notebook starts, it will open jupyter notebook in a local browser.
