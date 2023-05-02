@@ -1,4 +1,4 @@
-import googleart_utility as ga_utility
+import artstation_utility as at_utility
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 	start_time = time.time()
 
 	# get the driver
-	driver = ga_utility.get_driver()
+	driver = at_utility.get_driver()
 
 	# open file and create writer to save the data
 	path_artists_file = "./Scraping/artstation/Data/artstation_artists.csv"

@@ -14,6 +14,7 @@ gvm_mem_scraping_venv/
 # for ArtStation
 artstation_art_data.csv
 artstation_art_data_final.csv
+artstation_artists.csv
 
 
 # for NGA Collection
