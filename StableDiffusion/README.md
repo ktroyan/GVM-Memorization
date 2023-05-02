@@ -13,6 +13,7 @@ Here `$USERNAME` is your username on Euler server.
 $ USERNAME=your_username
 $ chmode 755 commands.sh
 $ ./commands.sh $USERNAME
+
 ```
 
 
