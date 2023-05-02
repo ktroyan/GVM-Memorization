@@ -14,68 +14,76 @@ import csv
 
 import requests
 
-def go_to_search_artits_page(driver, wait_driver):
-	wait_driver.until(
-    EC.visibility_of_element_located((By.XPATH, ".//input[@class='autocomplete-input main-menu-search-input']")))
-	search_box_element = driver.find_element(
-    by=By.XPATH, value=".//input[@class='autocomplete-input main-menu-search-input']")
+import argparse
 
-	search_box_element.click()
+# def go_to_search_artists_page(driver, wait_driver):
+# 	wait_driver.until(
+#     EC.visibility_of_element_located((By.XPATH, ".//input[@class='autocomplete-input main-menu-search-input']")))
+# 	search_box_element = driver.find_element(
+#     by=By.XPATH, value=".//input[@class='autocomplete-input main-menu-search-input']")
 
-	time.sleep(1)
+# 	search_box_element.click()
 
-	artist_search_box_element = driver.find_element(
-    by=By.XPATH, value=".//input[@href='/search/artists']")
+# 	time.sleep(1)
 
-	artist_search_box_element.click()
+# 	artist_search_box_element = driver.find_element(
+#     by=By.XPATH, value=".//input[@href='/search/artists']")
 
-	time.sleep(1)
+# 	artist_search_box_element.click()
 
-def add_followers_filter(driver, wait_driver, n_followers):
-	add_filter_box_element = driver.find_element(
-	by=By.XPATH, value=".//button[text()='Click me']")
+# 	time.sleep(1)
 
-	add_filter_box_element.click()
+# def add_followers_filter(driver, wait_driver, n_followers):
+# 	add_filter_box_element = driver.find_element(
+# 	by=By.XPATH, value=".//button[text()='Click me']")
 
-	time.sleep(1)
+# 	add_filter_box_element.click()
 
-	follower_box_element = driver.find_element(
-	by=By.XPATH, value=".//li[@id='select2-zevd-result-jf1s-followers_count']")
+# 	time.sleep(1)
 
-	follower_box_element.click()
+# 	follower_box_element = driver.find_element(
+# 	by=By.XPATH, value=".//li[@id='select2-zevd-result-jf1s-followers_count']")
 
-	time.sleep(1)
+# 	follower_box_element.click()
 
-	more_than_box_element = driver.find_element(
-	by=By.XPATH, value=".//li[@id='select2-3rs3-result-6kti-more_than']")
+# 	time.sleep(1)
 
-	more_than_box_element.click()
+# 	more_than_box_element = driver.find_element(
+# 	by=By.XPATH, value=".//li[@id='select2-3rs3-result-6kti-more_than']")
 
-	time.sleep(1)
+# 	more_than_box_element.click()
 
-	follower_input_field = driver.find_element(
-	by=By.XPATH, value=".//input[@id='form-control search-filters-control-input ng-pristine ng-valid ng-touched']")
+# 	time.sleep(1)
 
-	follower_input_field.send_keys(n_followers)
+# 	follower_input_field = driver.find_element(
+# 	by=By.XPATH, value=".//input[@id='form-control search-filters-control-input ng-pristine ng-valid ng-touched']")
 
-	time.sleep(1)
+# 	follower_input_field.send_keys(n_followers)
+
+# 	time.sleep(1)
 
 
 
 def start_scraping(driver, data_writer):
-	googleart_artists_webpage = "https://www.artstation.com"
 
-	n_followers = 10000
+	artist_n_followers = 10000
+
+	googleart_artists_webpage = "https://www.artstation.com/search/artists?sort_by=followers&followers_count_more_than=" + str(artist_n_followers)
 
 	driver.get(googleart_artists_webpage)
 
 	wait_driver = WebDriverWait(driver, 20)
 
-	go_to_search_artits_page(driver,wait_driver)
+	time.sleep(5)
 
-	add_followers_filter(driver,wait_driver,n_followers)
-	
+	wait_driver.until(
+    EC.visibility_of_element_located((By.XPATH, ".//div[@class='filter-content-count text-muted']")))
+
 	number_of_artists_raw = driver.find_element(by=By.XPATH, value=".//div[@class='filter-content-count text-muted']")
+
+
+
+
 	number_of_artists = int(number_of_artists_raw.split(' ')[0].replace(',',''))
 
 	nb_of_artists_collected = 0
@@ -111,6 +119,12 @@ if __name__ == "__main__":
 
 	# start time when running the script
 	start_time = time.time()
+
+	# get from the command line the scraping hyper-parameters (e.g., nb_scroll_updates) for scraping
+	command_line_parser = argparse.ArgumentParser()
+	command_line_parser.add_argument("--nb_scroll_updates", type=int, default=15, help="Number of times to scroll down on the webpage to update it. This impacts the number of artists that will be scraped.")
+	args = command_line_parser.parse_args()
+	nb_scroll_updates = args.nb_scroll_updates
 
 	# get the driver
 	driver = at_utility.get_driver()
