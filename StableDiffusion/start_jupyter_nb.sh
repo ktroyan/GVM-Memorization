@@ -71,25 +71,25 @@ JNB_HOSTNAME="euler.ethz.ch"
 JNB_CONFIG_FILE="$HOME/.jnb_config"
 
 # Username default              : no default
-JNB_USERNAME="nkoisheke"
+JNB_USERNAME=""
 
 # Number of CPU cores default   : 1 CPU core
-JNB_NUM_CPU=4
+JNB_NUM_CPU=1
 
 # Runtime limit default         : 1:00 hour
-JNB_RUN_TIME="02:00"
+JNB_RUN_TIME="01:00"
 
 # Memory default                : 1024 MB per core
-JNB_MEM_PER_CPU_CORE=4096
+JNB_MEM_PER_CPU_CORE=1024
 
 # Number of GPUs default        : 0 GPUs
 JNB_NUM_GPU=1
 
 # Waiting interval default      : 60 seconds
-JNB_WAITING_INTERVAL=10
+JNB_WAITING_INTERVAL=60
 
 # SSH key location default      : no default
-JNB_SSH_KEY_PATH="/Users/mrpositron/.ssh/id_ed25519_euler"
+JNB_SSH_KEY_PATH=""
 
 # Software stack default        : new
 JNB_SOFTWARE_STACK="new"
@@ -118,7 +118,7 @@ JNB_PYTHONPATH=""
 # batch system to be used       : Options are LSF and SLURM
 JNB_BATCH="SLURM"
 
-JNB_GPU_MEM="20g"
+JNB_GPU_MEM=""
 
 ###############################################################################
 # Usage instructions                                                          #

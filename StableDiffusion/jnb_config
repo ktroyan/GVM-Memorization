@@ -1,11 +1,11 @@
-JNB_USERNAME="sanagnos"             # ETH username for SSH connection to Euler
+JNB_USERNAME="nkoisheke"             # ETH username for SSH connection to Euler
 JNB_NUM_CPU=4               # Number of CPU cores to be used on the cluster
 JNB_NUM_GPU=1               # Number of GPUs to be used on the cluster
-JNB_RUN_TIME="04:00"        # Run time limit for the jupyter notebook in hours and minutes HH:MM
+JNB_RUN_TIME="02:00"        # Run time limit for the jupyter notebook in hours and minutes HH:MM
 JNB_MEM_PER_CPU_CORE=4096   # Memory limit in MB per core
 JNB_WAITING_INTERVAL=10     # Time interval to check if the job on the cluster already started
-JNB_SSH_KEY_PATH="$HOME/.ssh/id_rsa"         # Path to SSH key with non-standard name
+JNB_SSH_KEY_PATH="$HOME/.ssh/id_ed25519_euler"         # Path to SSH key with non-standard name
 JNB_SOFTWARE_STACK="new"    # Software stack to be used (old, new)
 JNB_WORKING_DIR=""          # Working directory for the jupyter notebook
 JNB_ENV=""                  # Path to virtual environment
-JNB_GPU_MEM="16g"          # GPU memory
+JNB_GPU_MEM="20g"          # GPU memory
