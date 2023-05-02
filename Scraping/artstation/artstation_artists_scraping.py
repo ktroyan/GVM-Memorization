@@ -16,92 +16,40 @@ import requests
 
 import argparse
 
-# def go_to_search_artists_page(driver, wait_driver):
-# 	wait_driver.until(
-#     EC.visibility_of_element_located((By.XPATH, ".//input[@class='autocomplete-input main-menu-search-input']")))
-# 	search_box_element = driver.find_element(
-#     by=By.XPATH, value=".//input[@class='autocomplete-input main-menu-search-input']")
+def scroll_down_webpage(driver, nb_scroll_updates):
+	for i in range(nb_scroll_updates):
+		html_element = driver.find_element(By.TAG_NAME, 'html')
+		html_element.send_keys(Keys.END)
+		print(f"Scrolled {i} times until now.")
+		time.sleep(2)
 
-# 	search_box_element.click()
-
-# 	time.sleep(1)
-
-# 	artist_search_box_element = driver.find_element(
-#     by=By.XPATH, value=".//input[@href='/search/artists']")
-
-# 	artist_search_box_element.click()
-
-# 	time.sleep(1)
-
-# def add_followers_filter(driver, wait_driver, n_followers):
-# 	add_filter_box_element = driver.find_element(
-# 	by=By.XPATH, value=".//button[text()='Click me']")
-
-# 	add_filter_box_element.click()
-
-# 	time.sleep(1)
-
-# 	follower_box_element = driver.find_element(
-# 	by=By.XPATH, value=".//li[@id='select2-zevd-result-jf1s-followers_count']")
-
-# 	follower_box_element.click()
-
-# 	time.sleep(1)
-
-# 	more_than_box_element = driver.find_element(
-# 	by=By.XPATH, value=".//li[@id='select2-3rs3-result-6kti-more_than']")
-
-# 	more_than_box_element.click()
-
-# 	time.sleep(1)
-
-# 	follower_input_field = driver.find_element(
-# 	by=By.XPATH, value=".//input[@id='form-control search-filters-control-input ng-pristine ng-valid ng-touched']")
-
-# 	follower_input_field.send_keys(n_followers)
-
-# 	time.sleep(1)
-
-
-
-def start_scraping(driver, data_writer):
-
-	artist_n_followers = 10000
-
-	googleart_artists_webpage = "https://www.artstation.com/search/artists?sort_by=followers&followers_count_more_than=" + str(artist_n_followers)
-
-	driver.get(googleart_artists_webpage)
+def start_scraping(driver, data_writer, nb_scroll_updates, min_nb_followers):
 
 	wait_driver = WebDriverWait(driver, 20)
 
-	time.sleep(5)
+	# go to the webpage that lists the artists on ArtStation
+	googleart_artists_webpage = "https://www.artstation.com/search/artists?sort_by=followers&followers_count_more_than=" + str(min_nb_followers)
+	driver.get(googleart_artists_webpage)
 
+
+	# wait until the page has loaded
+	time.sleep(5)
 	wait_driver.until(
     EC.visibility_of_element_located((By.XPATH, ".//div[@class='filter-content-count text-muted']")))
 
-	number_of_artists_raw = driver.find_element(by=By.XPATH, value=".//div[@class='filter-content-count text-muted']")
+	# scroll down the webpage several times to update the number of artists present on the webpage
+	scroll_down_webpage(driver, nb_scroll_updates)
 
-
-
-
-	number_of_artists = int(number_of_artists_raw.split(' ')[0].replace(',',''))
+	artist_elements = driver.find_elements(by=By.XPATH, value=".//div[@class='artists-list-info flex-shrink-0']")
 
 	nb_of_artists_collected = 0
 
-	# scroll down the webpage several times to update the artists present on the webpage
-	'''
-	nb_of_scrolls = 10
-	for _ in range(nb_of_scrolls):
-		html_element = driver.find_element(By.TAG_NAME, 'html')
-		html_element.send_keys(Keys.END)
-		time.sleep(2)
-	'''
-	artist_elements = driver.find_elements(by=By.XPATH, value=".//li[_ngcontent-bil-c98]")
-
+	# iterate over the artists in the webpage and collect their info and profile url
 	for i, artist in enumerate(artist_elements):
-
-		artist_name = artist.find_element(by=By.XPATH, value=".//a[@class='text-white']")
-		artist_url = artist_name.get_attribute("href")
+		xpath_artist_info = ".//div[@class='d-flex align-items-start']/div[@class='artists-list-card']/div[@class='artists-list-name']/a[@class='text-white']"
+		artist_profile = artist.find_element(by=By.XPATH, value=xpath_artist_info)
+		artist_name = artist_profile.text
+		artist_url = artist_profile.get_attribute("href")
 		
 		print("Saving the artist: ", artist_name)
 		print("Url: ", artist_url)
@@ -111,6 +59,8 @@ def start_scraping(driver, data_writer):
 		nb_of_artists_collected += 1
 
 		print("Total artists collected: ", nb_of_artists_collected)
+
+	print(f"Collected {nb_of_artists_collected} artists.")
 
 	return nb_of_artists_collected
 
@@ -122,9 +72,16 @@ if __name__ == "__main__":
 
 	# get from the command line the scraping hyper-parameters (e.g., nb_scroll_updates) for scraping
 	command_line_parser = argparse.ArgumentParser()
-	command_line_parser.add_argument("--nb_scroll_updates", type=int, default=15, help="Number of times to scroll down on the webpage to update it. This impacts the number of artists that will be scraped.")
+
+	command_line_parser.add_argument("--nb_scroll_updates", type=int, default=30, help="Number of times to scroll down on the webpage to update it. This impacts the number of artists that will be scraped.")
+	
+	# set the number of followers filter that selects artists that have at least artist_n_followers followers; we are then more likely to have "famous" online artists that exist in training sets of widely used StaleDiffusion models
+	command_line_parser.add_argument("--min_nb_followers", type=int, default=10000, help="Number of followers that an artist must have to be scraped. This impacts the number of artists that will be scraped.")	
+
 	args = command_line_parser.parse_args()
+
 	nb_scroll_updates = args.nb_scroll_updates
+	min_nb_followers = args.min_nb_followers
 
 	# get the driver
 	driver = at_utility.get_driver()
@@ -134,7 +91,7 @@ if __name__ == "__main__":
 	artists_csv_file = open(path_artists_file, 'a', encoding="utf-8")
 	artists_writer = csv.writer(artists_csv_file, delimiter="\t", lineterminator="\n")
 
-	artists_row_header = ['artist_name', 'nb_artworks', 'artist_url']
+	artists_row_header = ['artist_name', 'artist_url']
 
 	# write header of the csv file if there is no header yet
 	with open(path_artists_file, "r") as f:
@@ -149,7 +106,7 @@ if __name__ == "__main__":
 
 
 	# start scraping
-	scraping_output = start_scraping(driver, artists_writer)
+	scraping_output = start_scraping(driver, artists_writer, nb_scroll_updates, min_nb_followers)
 
 	print(scraping_output)
 
