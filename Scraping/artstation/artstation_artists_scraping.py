@@ -8,10 +8,11 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, TimeoutException, NoSuchWindowException, StaleElementReferenceException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium_stealth import stealth
 
 import time
 import csv
-
+import os
 import requests
 
 import argparse
@@ -19,7 +20,7 @@ import argparse
 def scroll_down_webpage(driver, nb_scroll_updates):
 	for i in range(nb_scroll_updates):
 		html_element = driver.find_element(By.TAG_NAME, 'html')
-		html_element.send_keys(Keys.END)
+		html_element.send_keys(Keys.PAGE_DOWN)
 		print(f"Scrolled {i} times until now.")
 		time.sleep(2)
 
@@ -31,7 +32,7 @@ def start_scraping(driver, data_writer, nb_scroll_updates, min_nb_followers):
 	googleart_artists_webpage = "https://www.artstation.com/search/artists?sort_by=followers&followers_count_more_than=" + str(min_nb_followers)
 	driver.get(googleart_artists_webpage)
 
-
+	driver.delete_all_cookies()
 	# wait until the page has loaded
 	time.sleep(5)
 	wait_driver.until(
@@ -44,6 +45,8 @@ def start_scraping(driver, data_writer, nb_scroll_updates, min_nb_followers):
 
 	nb_of_artists_collected = 0
 
+	name_and_site = []
+
 	# iterate over the artists in the webpage and collect their info and profile url
 	for i, artist in enumerate(artist_elements):
 		xpath_artist_info = ".//div[@class='d-flex align-items-start']/div[@class='artists-list-card']/div[@class='artists-list-name']/a[@class='text-white']"
@@ -55,14 +58,14 @@ def start_scraping(driver, data_writer, nb_scroll_updates, min_nb_followers):
 		print("Url: ", artist_url)
 
 		data_writer.writerow([artist_name, artist_url])
-		
+		name_and_site.append([artist_name, artist_url])
 		nb_of_artists_collected += 1
 
 		print("Total artists collected: ", nb_of_artists_collected)
 
 	print(f"Collected {nb_of_artists_collected} artists.")
 
-	return nb_of_artists_collected
+	return name_and_site
 
 
 if __name__ == "__main__":
@@ -73,10 +76,10 @@ if __name__ == "__main__":
 	# get from the command line the scraping hyper-parameters (e.g., nb_scroll_updates) for scraping
 	command_line_parser = argparse.ArgumentParser()
 
-	command_line_parser.add_argument("--nb_scroll_updates", type=int, default=30, help="Number of times to scroll down on the webpage to update it. This impacts the number of artists that will be scraped.")
+	command_line_parser.add_argument("--nb_scroll_updates", type=int, default=150, help="Number of times to scroll down on the webpage to update it. This impacts the number of artists that will be scraped.")
 	
 	# set the number of followers filter that selects artists that have at least artist_n_followers followers; we are then more likely to have "famous" online artists that exist in training sets of widely used StaleDiffusion models
-	command_line_parser.add_argument("--min_nb_followers", type=int, default=10000, help="Number of followers that an artist must have to be scraped. This impacts the number of artists that will be scraped.")	
+	command_line_parser.add_argument("--min_nb_followers", type=int, default=40000, help="Number of followers that an artist must have to be scraped. This impacts the number of artists that will be scraped.")	
 
 	args = command_line_parser.parse_args()
 
@@ -86,8 +89,29 @@ if __name__ == "__main__":
 	# get the driver
 	driver = at_utility.get_driver()
 
+	stealth(driver,
+      languages=["en-US", "en"],
+      vendor="Google Inc.",
+      platform="Win32",
+      webgl_vendor="Intel Inc.",
+      renderer="Intel Iris OpenGL Engine",
+      fix_hairline=True,
+  	)
+
+	#clean the cookies
+	driver.delete_all_cookies()
+
 	# open file and create writer to save the data
-	path_artists_file = "./Scraping/artstation/Data/artstation_artists.csv"
+	path_artists_file = "./Data/artstation_artists.csv"
+
+	#know if file exists otherwise create it
+	if(os.path.exists(path_artists_file)):
+		artists_csv_file = open(path_artists_file, 'a', encoding="utf-8")
+		artists_writer = csv.writer(artists_csv_file, delimiter="\t", lineterminator="\n")
+	else:
+		# create the file and write the header
+		os.makedirs(os.path.dirname(path_artists_file), exist_ok=True)
+
 	artists_csv_file = open(path_artists_file, 'a', encoding="utf-8")
 	artists_writer = csv.writer(artists_csv_file, delimiter="\t", lineterminator="\n")
 
@@ -108,8 +132,14 @@ if __name__ == "__main__":
 	# start scraping
 	scraping_output = start_scraping(driver, artists_writer, nb_scroll_updates, min_nb_followers)
 
-	print(scraping_output)
+	print("Finished scraping ArtStation")
 
+	#writing to csv
+	with open('./Scraping/artstation/Data/artstation_artists.csv', 'w', newline='') as f:
+		writer = csv.writer(f)
+		writer.writerow(['artist_name', 'artist_url'])
+		writer.writerows(scraping_output)
+	
 	# close csv files as nothing more to write for now
 	artists_csv_file.close()
 
