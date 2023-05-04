@@ -10,7 +10,7 @@ import pandas as pd
 
 def get_driver():
   # load the chrome driver with options
-  chrome_driver_path = "./Scraping/chromedriver_win32/chromedriver.exe"  # path to the chromedriver
+  chrome_driver_path = "./Scraping/chromedriver_win32/chromedriver"  # path to the chromedriver
 
   chrome_options = Options()
   user_agent = ''.join(random.choices(string.ascii_lowercase,
@@ -18,9 +18,9 @@ def get_driver():
   chrome_options.add_argument(f'user-agent={user_agent}')
   # chrome_options.add_argument("--disable-extensions")
   # chrome_options.add_argument('--load-extension=extension_3_4_4_0.crx')
-  #chrome_options.add_extension(
-  #  './Scraping/chromedriver_win32/istilldontcareaboutcookies-chrome-1.1.1_0.crx'
-  #)  # to get a crx to load: https://techpp.com/2022/08/22/how-to-download-and-save-chrome-extension-as-crx/
+  chrome_options.add_extension(
+    './Scraping/chromedriver_win32/istilldontcareaboutcookies-chrome-1.1.1_0.crx'
+  )  # to get a crx to load: https://techpp.com/2022/08/22/how-to-download-and-save-chrome-extension-as-crx/
   chrome_options.add_argument("start-maximized")
   chrome_options.add_argument("disable-infobars")
   # chrome_options.add_argument(r"--user-data-dir=/Users/klimm/AppData/Local/Google/Chrome/User Data")
