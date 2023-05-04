@@ -41,9 +41,6 @@ def start_scraping(data_writer,nb_of_artworks_to_collect_per_artist):
 	# get the list of selected artists webpage urls containing artworks to scrape
 	artists_file_path = "./Scraping/artstation/Data/artstation_artists.csv"
 	artists_data = get_list_of_artists_data(artists_file_path)
-	
-	
-
 	nb_of_artworks_collected = 0
 	for i in range(len(artists_data)):
 
