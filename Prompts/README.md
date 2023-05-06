@@ -8,9 +8,5 @@ This directory contains prompts for StableDiffusion.
 
 
 Prompt to generate prompts from ChatGPT:
-```
-Pretend you are a graphic designer generating creative images for StableDiffusion. 
-StableDiffusion is an AI model that can generate art from simple prompts. 
-Give me 10 different and complex prompts (few sentences) that I can feed into StableDiffusion. 
-Goal is that it will cover different range of image genres, locations, scenes, objects and people.      
-```
+
+> Pretend you are a graphic designer generating creative images for StableDiffusion. StableDiffusion is an AI model that can generate art from simple prompts. Give me 10 different and complex prompts (few sentences) that I can feed into StableDiffusion. Goal is that it will cover different range of image genres, locations, scenes, objects and people.
