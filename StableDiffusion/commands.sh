@@ -28,4 +28,5 @@ module load gcc/8.2.0 python_gpu/3.10.4 r/4.0.2 git-lfs/2.3.0 eth_proxy npm/6.14
 pip install torch==2.0.0 torchvision==0.15.2 torchaudio==2.0.1
 pip install xformers==0.0.19
 pip install diffusers accelerate transformers mediapy triton scipy ftfy spacy==3.4.4 
+pip install tqdm
 ENDSSH
