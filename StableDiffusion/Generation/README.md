@@ -1,5 +1,13 @@
 # Readme
 
+
+## Generated Images
+
+- Historic Data
+    - SD ver 2.1: [[images in .zip](https://drive.google.com/file/d/1d4zHZ0sBdjSomjjS137DTP-yhEAWJ4Vh/view?usp=sharing)]  [[images stored in .npy](https://drive.google.com/file/d/1hVLcaKpu-CuVEZB7Kq9QGfUfCqrhT8yt/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1_Y0WiH7Pac_5OOyzkALoaG8NonAedipf/view?usp=sharing)]
+    - SD ver 1.5: 
+
+
 ## Zero-shot learning on historic images
 
 Number of real images: 1181    
