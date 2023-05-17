@@ -9,8 +9,8 @@
 
 - CLIP Image embeddings:
     - SD ver 2.1, Torch Tensors: [[openai_ViT-B-32](https://drive.google.com/file/d/1AAqHDVlV2RxVa7jGCT_iOPn3zvaZ7OOE/view?usp=share_link)] [[laion2b_s34b_b79k_ViT-B-32](https://drive.google.com/file/d/1cH5PHM725ILvxTKaiLnlVv7UFMOtlt2U/view?usp=share_link)]
-    - SD ver 1.5 [[]()] [[]()]
-
+    - SD ver 1.5, Torch Tensors: [[openai_ViT-B-32](https://drive.google.com/file/d/1ERCr626pc5xWgqrEKHOX3Pk1TG2K7kOg/view?usp=share_link)] [[laion2b_s34b_b79k_ViT-B-32](https://drive.google.com/file/d/1KPF96KTau66zLPWw3xYPtxrYwD-fey1e/view?usp=sharing)]     
+    > Load embeddings with `torch.load('sd_2_1_openai_ViT-B-32.pt')`
 
 ## Zero-shot learning on historic images
 
