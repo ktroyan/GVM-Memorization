@@ -7,6 +7,10 @@
     - SD ver 2.1: [[images in .zip](https://drive.google.com/file/d/1d4zHZ0sBdjSomjjS137DTP-yhEAWJ4Vh/view?usp=sharing)]  [[images stored in .npy](https://drive.google.com/file/d/1hVLcaKpu-CuVEZB7Kq9QGfUfCqrhT8yt/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1_Y0WiH7Pac_5OOyzkALoaG8NonAedipf/view?usp=sharing)]
     - SD ver 1.5: [[images in .zip](https://drive.google.com/file/d/1ceQyy9kAdUHq1HGbcaW1fsLFi9yQPTWz/view?usp=share_link)] [[image descriptions](https://drive.google.com/file/d/1VXuwaNIYVt1JFUIh6A5p65AIHFM0HHzJ/view?usp=sharing)]
 
+- CLIP Image embeddings:
+    - SD ver 2.1, Torch Tensors: [[openai_ViT-B-32](https://drive.google.com/file/d/1AAqHDVlV2RxVa7jGCT_iOPn3zvaZ7OOE/view?usp=share_link)] [[laion2b_s34b_b79k_ViT-B-32](https://drive.google.com/file/d/1cH5PHM725ILvxTKaiLnlVv7UFMOtlt2U/view?usp=share_link)]
+    - SD ver 1.5 [[]()] [[]()]
+
 
 ## Zero-shot learning on historic images
 
