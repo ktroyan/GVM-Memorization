@@ -68,6 +68,11 @@ def start_scraping(data_writer, art_df):
     #number_of_artists = int(number_of_artists_raw.split(' ')[0])
 
     for i in range(len(art_df)):
+        #check if the artist has already been scraped by looking at the index in the file system
+        if(os.path.exists(f'./Scraping/artstation/Data/artworks/index_{i}.png')):
+            continue
+
+        print("Current index: ", i, "Remaining: ", len(art_df)-i)
         # get the driver
         driver = at_utility.get_driver()
         wait_driver = WebDriverWait(driver, 20)
@@ -126,13 +131,22 @@ if __name__ == "__main__":
 
     # start time when running the script
     start_time = time.time()
+    '''
+    old_dataset = pd.read_csv("./Scraping/artstation/Data/old_dataset.csv", sep="\t")
+    #filter
+    old_dataset = old_dataset.groupby('artist_name').filter(lambda x: len(x) > 10)
 
+    #remove lines after index 4548
+    old_dataset = old_dataset.iloc[:4549]
+    #create progressive index on the dataset
+    old_dataset = old_dataset.reset_index(drop=True)
+    '''
     # open file and create writer to save the data
     path_art_file = "./Scraping/artstation/Data/artstation_art_data.csv"
     art_csv_file = open(path_art_file, 'a', encoding="utf-8")
     art_writer = csv.writer(art_csv_file, delimiter="\t", lineterminator="\n")
 
-    artists_row_header = ['artist_name', 'artwork_title', 'artwork_url','artwork_cdn']
+    artists_row_header = ['artist_name', 'artwork_title', 'artwork_url']
 
     # write header of the csv file if there is no header yet
     with open(path_art_file, "r") as f:
@@ -147,6 +161,19 @@ if __name__ == "__main__":
 
     # open artstation_art_data.csv file in pandas dataframe
     artstation_data_df = pd.read_csv(path_art_file, sep='\t', encoding='utf-8')
+    #remove artists that have less than 10 artworks
+    artstation_data_df = artstation_data_df.groupby('artist_name').filter(lambda x: len(x) > 10)
+    #concat the two datasets
+    '''
+    merged = pd.concat([old_dataset, artstation_data_df ], axis=0)
+    #remove duplicates keeping the first
+    merged = merged.drop_duplicates(subset=['artwork_url'], keep='first')
+    #reset index
+    merged = merged.reset_index(drop=True)
+    #savemergerd dataset
+    path_art_file = "./Scraping/artstation/Data/artstation_art_data_merged.csv"
+    merged.to_csv(path_art_file, sep="\t", encoding="utf-8", index=False)
+    '''
     # start scraping
     art_df_final = start_scraping(art_writer, artstation_data_df)
     path_art_file = "./Scraping/artstation/Data/artstation_art_data_final.csv"
