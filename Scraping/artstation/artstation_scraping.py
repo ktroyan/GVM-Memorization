@@ -11,12 +11,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 import time
 import csv
-
-import requests
-import PIL
 from PIL import Image
-from io import StringIO
-
+import argparse
 
 
 def get_list_of_artists_data(artists_file_path):
@@ -37,7 +33,6 @@ def get_webpage(driver, url):
 	time.sleep(2)
 
 def start_scraping(data_writer,nb_of_artworks_to_collect_per_artist):
-	
 	# get the list of selected artists webpage urls containing artworks to scrape
 	artists_file_path = "./Scraping/artstation/Data/artstation_artists.csv"
 	artists_data = get_list_of_artists_data(artists_file_path)
@@ -74,21 +69,21 @@ def start_scraping(data_writer,nb_of_artworks_to_collect_per_artist):
 			wait_driver.until(EC.presence_of_element_located((By.XPATH, ".//a[@class='project-image']")))
 			artwork_link = artwork.find_element(by=By.XPATH, value=".//a[@class='project-image']")
 			artwork_url = artwork_link.get_attribute("href")
-			wait_driver.until(EC.presence_of_element_located((By.XPATH, ".//img[@class='image']")))
+			#contains image and something else in class
+			wait_driver.until(EC.presence_of_element_located((By.XPATH, ".//img[contains(@class,'image')]")))
 			
-			artwork_image = artwork_link.find_element(by=By.XPATH, value=".//img")
+			artwork_image = artwork_link.find_element(by=By.XPATH, value=".//img[contains(@class,'image')]")
 			artwork_title = artwork_image.get_attribute("alt")
-			artwork_cdn = artwork_image.get_attribute("src")
 			
 
 			print("Saving the artwork: ", artwork_title, " by ", artist_name)
-			data_writer.writerow([artist_name, artwork_title, artwork_url, artwork_cdn])
+			data_writer.writerow([artist_name, artwork_title, artwork_url])
 			
 			nb_of_artworks_collected += 1
 
 			print("Total artworks collected: ", nb_of_artworks_collected)
 
-			if(k%5==0):
+			if(k%10==0):
 				print("Scrolling down")
 				scroll_down(driver)
 
@@ -104,15 +99,20 @@ if __name__ == "__main__":
 	# start time when running the script
 	start_time = time.time()
 
-	# get the driver
-	#driver = at_utility.get_driver()
+	#command line arg for the number of picture to take
+	command_line_parser = argparse.ArgumentParser()
+
+	command_line_parser.add_argument("--nb_artwork_per_artist", type=int, default=10, help="Number of artwork per artists that will be scraped.")
+	args = command_line_parser.parse_args()
+
+	artwork_per_artist = args.nb_artwork_per_artist
 
 	# open file and create writer to save the data
 	path_art_file = "./Scraping/artstation/Data/artstation_art_data.csv"
 	art_csv_file = open(path_art_file, 'a', encoding="utf-8")
 	art_writer = csv.writer(art_csv_file, delimiter="\t", lineterminator="\n")
 
-	artists_row_header = ['artist_name', 'artwork_title', 'artwork_url','artwork_cdn']
+	artists_row_header = ['artist_name', 'artwork_title', 'artwork_url']
 
 	# write header of the csv file if there is no header yet
 	with open(path_art_file, "r") as f:
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
 
 	# start scraping
-	scraping_output = start_scraping(art_writer,3)
+	scraping_output = start_scraping(art_writer,artwork_per_artist)
 
 	print(scraping_output)
 
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
 	# time spent for the full scraping run
 	end_time = time.time()
-	print("Finished scraping TripAdvisor")
+	print("Finished scraping ArtStation")
 	print("Time elapsed for the scraping run: ",
 	int(end_time - start_time) // 60, " minutes and ",
 	int(end_time - start_time) % 60, " seconds")

@@ -22,7 +22,7 @@ def scroll_down_webpage(driver, nb_scroll_updates):
 		html_element = driver.find_element(By.TAG_NAME, 'html')
 		html_element.send_keys(Keys.PAGE_DOWN)
 		print(f"Scrolled {i} times until now.")
-		time.sleep(2)
+		time.sleep(5)
 
 def start_scraping(driver, data_writer, nb_scroll_updates, min_nb_followers):
 

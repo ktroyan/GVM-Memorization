@@ -83,18 +83,24 @@ def start_scraping(data_writer, art_df):
         
         artwork_url = art_df['artwork_url'].iloc[i]
         get_webpage(driver, artwork_url)
-
-    
+        
+        time.sleep(2)
+        
         artist_name = art_df['artist_name'].iloc[i]
         wait_driver.until(EC.visibility_of_element_located((By.XPATH, ".//time[@class='project-published']")))
 
         artwork_date = driver.find_element(by=By.XPATH, value=".//time[@class='project-published']").get_attribute('title')
         art_df['artwork_date'].iloc[i] = artwork_date
         print(artwork_date)
-        wait_driver.until(EC.visibility_of_element_located((By.XPATH, ".//picture[@class='d-block']")))
 
         # Given the image url, we can do the following to dl it:
-        image_dl_link_element = driver.find_elements(by=By.XPATH, value=".//source")[0]
+        try:
+            image_dl_link_element = driver.find_elements(by=By.XPATH, value=".//source")[0]
+        except IndexError:
+            print("No image for this artwork")
+            driver.close()
+            driver.quit()
+            continue
         image_dl_url = str(image_dl_link_element.get_attribute("srcset"))
         art_df['image_url'].iloc[i] = image_dl_url
         print(image_dl_url)
@@ -105,7 +111,7 @@ def start_scraping(data_writer, art_df):
         #download image
         image = Image.open(BytesIO(image_element.screenshot_as_png))
 
-        image_path = os.path.join("./Scraping/artstation/Data/index_" + str(i) + ".png")
+        image_path = os.path.join("./Scraping/artstation/Data/artworks/index_" + str(i) + ".png")
         #save in new file
         image.save(image_path)
         art_df['image_path'].iloc[i] = image_path
