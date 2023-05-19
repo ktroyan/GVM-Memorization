@@ -52,9 +52,9 @@ Number of generated images: 3960 (264 artists x 15 images)
 ### On generated images
 |SD version|Image embedding|Top-1|Top-5|  
 |---|---|---|---|
-|2.1|openai + ViT-B-32|||
-|2.1|laion2b_s34b_b79k + ViT-B-32|||
-|2.1|laion400m_e32 + ViT-B-32 |||
+|2.1|openai + ViT-B-32|0.88|3.74|
+|2.1|laion2b_s34b_b79k + ViT-B-32|0.96|3.81|
+|2.1|laion400m_e32 + ViT-B-32 |0.81|3.36|
 |1.5|openai + ViT-B-32|1.31|4.24|
 |1.5|laion2b_s34b_b79k + ViT-B-32|0.86|3.33|
 |1.5|laion400m_e32 + ViT-B-32 |0.73|3.21|
