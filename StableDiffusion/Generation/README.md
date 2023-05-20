@@ -46,7 +46,7 @@ Number of generated images: 3735 (249 artists x 15 images)
 
 ## Zero-shot learning on ArtStation images
 
-Number of real images:       
+Number of real images (* filtered artists with non-ascii names): 7031      
 Number of generated images: 3960 (264 artists x 15 images)     
 Number of generated images (* with filtered artists): 3705 (247 artists x 15 images)
 
@@ -61,6 +61,14 @@ Number of generated images (* with filtered artists): 3705 (247 artists x 15 ima
 ||laion2b|0.71|3.03|0.43|2.13|
 ||laion400m|0.66|3.11|0.57|2.24|
 |Random|-|0.37|1.89|0.40|2.02|
+
+### On real images
+
+|Image embedding|Top-1|Top-5|  
+|---|---|---|
+|openai|5.85|12.22|
+|laion2b|3.67|7.18|
+|laion400m|2.03|6.0|
 
 
 ## Error analysis on generated images (historical)
