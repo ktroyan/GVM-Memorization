@@ -5,18 +5,34 @@
 
 ### Historic Data
 
-- SD ver 2.1: [[images in .zip](https://drive.google.com/file/d/1d4zHZ0sBdjSomjjS137DTP-yhEAWJ4Vh/view?usp=sharing)]  [[images stored in .npy](https://drive.google.com/file/d/1hVLcaKpu-CuVEZB7Kq9QGfUfCqrhT8yt/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1_Y0WiH7Pac_5OOyzkALoaG8NonAedipf/view?usp=sharing)]
+__Ver1__ and __Ver2__ follow similar format but with different prompts. Both of them have same sizes.
+
+__Ver1__
+
+- SD ver 2.1: [[images in .zip](https://drive.google.com/file/d/1d4zHZ0sBdjSomjjS137DTP-yhEAWJ4Vh/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1_Y0WiH7Pac_5OOyzkALoaG8NonAedipf/view?usp=sharing)]
 - SD ver 1.5: [[images in .zip](https://drive.google.com/file/d/1ceQyy9kAdUHq1HGbcaW1fsLFi9yQPTWz/view?usp=share_link)] [[image descriptions](https://drive.google.com/file/d/1VXuwaNIYVt1JFUIh6A5p65AIHFM0HHzJ/view?usp=sharing)]
 
 - CLIP Image embeddings:
-    - SD ver 2.1, Torch Tensors: [[openai_ViT-B-32](https://drive.google.com/file/d/1AAqHDVlV2RxVa7jGCT_iOPn3zvaZ7OOE/view?usp=share_link)] [[laion2b_s34b_b79k_ViT-B-32](https://drive.google.com/file/d/1cH5PHM725ILvxTKaiLnlVv7UFMOtlt2U/view?usp=share_link)]
-    - SD ver 1.5, Torch Tensors: [[openai_ViT-B-32](https://drive.google.com/file/d/1ERCr626pc5xWgqrEKHOX3Pk1TG2K7kOg/view?usp=share_link)] [[laion2b_s34b_b79k_ViT-B-32](https://drive.google.com/file/d/1KPF96KTau66zLPWw3xYPtxrYwD-fey1e/view?usp=sharing)]     
+    - SD ver 2.1, Torch Tensors: [[openai](https://drive.google.com/file/d/1AAqHDVlV2RxVa7jGCT_iOPn3zvaZ7OOE/view?usp=share_link)] [[laion2b](https://drive.google.com/file/d/1cH5PHM725ILvxTKaiLnlVv7UFMOtlt2U/view?usp=share_link)]
+    - SD ver 1.5, Torch Tensors: [[openai](https://drive.google.com/file/d/1ERCr626pc5xWgqrEKHOX3Pk1TG2K7kOg/view?usp=share_link)] [[laion2b](https://drive.google.com/file/d/1KPF96KTau66zLPWw3xYPtxrYwD-fey1e/view?usp=sharing)]     
+
+__Ver2__
+
+
+- SD ver 2.1: [[images in .zip](https://drive.google.com/file/d/1Jgyu7Rxi6sQ2I7H0njeqNqPhT1NsPwKR/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1JNqughC6irSygR6HMKiCXplXORWEM_eL/view?usp=sharing)]
+- SD ver 1.5: [[images in .zip](https://drive.google.com/file/d/11ttJP96Z6XePuR23qaV6bF6-0C_y6cA9/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1Gl7vD6u1487AjKoOJVGj7jWOdbQpeOav/view?usp=sharing)]
+
+- CLIP Image embeddings:
+    - SD ver 2.1, Torch Tensors: [[openai]()] [[laion2b]()]
+    - SD ver 1.5, Torch Tensors: [[openai]()] [[laion2b]()]  
+
 
 ### ArtStation Data:
 - SD ver 1.5: [[images in .zip](https://drive.google.com/file/d/1jn7brUSN1peBnqo3JG_LT5sBg6rPHNPm/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1Cfz2JjR8V4U5Ct_mi1uqphRzSem9gtj5/view?usp=sharing)]
 
 - CLIP Image embeddings:
-    - SD ver 1.5, Torch Tensors: [[openai_ViT-B-32](https://drive.google.com/file/d/1FCGXLnFb_lyLvqx37E8R9n5TIB7o7Wcu/view?usp=sharing)] [[laion2b_s34b_b79k_ViT-B-32](https://drive.google.com/file/d/1L8rF1pv_FjGvkvFXoECat2Qhug29XpG3/view?usp=sharing)]     
+    - SD ver 1.5, Torch Tensors: [[openai](https://drive.google.com/file/d/1FCGXLnFb_lyLvqx37E8R9n5TIB7o7Wcu/view?usp=sharing)] [[laion2b](https://drive.google.com/file/d/1L8rF1pv_FjGvkvFXoECat2Qhug29XpG3/view?usp=sharing)]   
+    - SD ver 2.1, Torch Tensors: [[openai](https://drive.google.com/file/d/1XvgRW-f9MVNJb7xh2yEKkLdOARaU8YFN/view?usp=sharing)] [[laion2b](https://drive.google.com/file/d/1oavqQxN7QC3X54u18pci9tEv8OMOS7eB/view?usp=sharing)] 
 
 > Load embeddings with `torch.load('sd_2_1_openai_ViT-B-32.pt')`
 
