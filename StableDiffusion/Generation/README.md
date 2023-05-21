@@ -10,6 +10,9 @@
 
 ### ArtStation Data
 
+- [[images in .zip](https://drive.google.com/file/d/1UNJHZuaD_0kiSe4Y8wfo40jWrkdDfwhL/view?usp=sharing)] [[image descriptions (* filtered non-ascii artist names)](https://drive.google.com/file/d/1ARh2s9LU1vCbmmJPn1UwXHdCpL1z7Dho/view?usp=sharing)]
+- CLIP Image embeddings:
+    - [[openai](https://drive.google.com/file/d/1r9_0fMKmhymtpGiKJG4znLUdFv1l0Bkt/view?usp=sharing)] [[laion2b](https://drive.google.com/file/d/1l6vQkRAY4F6XJHaCHPZiE9vDGO233Ngh/view?usp=sharing)]
 
 
 ## Generated Images
