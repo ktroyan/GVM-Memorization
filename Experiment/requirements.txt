@@ -1,0 +1,12 @@
+pandas
+numpy
+xgboost
+torchsummary
+scikit-learn
+matplotlib
+--find-links https://download.pytorch.org/whl/cu118
+torch 
+torchvision
+torchaudio
+wandb
+tqdm

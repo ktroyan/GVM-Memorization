@@ -1,3 +1,16 @@
+gvm_mem_venv/
+gvm_scraping_venv/
+
+*.zip
+
+*.csv
+!test_set_artists_ranking.csv
+!train_set_artists_ranking.csv
+
+*.pt
+
+wandb/
+
 reconnect_info
 
 chromedriver_win32/
