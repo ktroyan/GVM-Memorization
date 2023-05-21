@@ -22,8 +22,11 @@ import random
 import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, mean_absolute_error, mean_squared_error
-import xgboost as xgb
+from sklearn.metrics import accuracy_score, roc_auc_score, mean_absolute_error, mean_squared_error
+from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
+from sklearn.model_selection import StratifiedKFold
+from xgboost import XGBClassifier
+from scipy.stats import uniform
 
 # Visualization
 import matplotlib.pyplot as plt
@@ -32,8 +35,12 @@ import matplotlib.pyplot as plt
 from tqdm import trange, tqdm
 import wandb
 
+# Other files dependencies
+from config import Configuration
+from config import CONSTANTS as C
 
-def seed_everything(SEED=121997):
+
+def seed_everything(SEED):
     random.seed(SEED)
     os.environ['PYTHONHASHSEED'] = str(SEED)
     np.random.seed(SEED)
@@ -42,7 +49,7 @@ def seed_everything(SEED=121997):
     torch.backends.cudnn.deterministic = False   # True for deterministic
     torch.backends.cudnn.benchmark = True  # False for deterministic
 
-def get_cuda_gpu_info():
+def show_cuda_gpu_info():
     if torch.cuda.is_available():
         print("Cuda is available.")
         print(torch.cuda.current_device())
@@ -53,20 +60,30 @@ def get_cuda_gpu_info():
         # print(torch.cuda.memory_allocated(0))
         # print(torch.cuda.memory_cached(0))
         # print(torch.cuda.memory_summary(0))
-        device = torch.device('cuda')
-    elif torch.backends.mps.is_available():     # for MacOS
-        device = 'mps'
     else:
         print("Cuda is not available.")
-        device = torch.device('cpu')
-
-    return device
 
 def load_dataset(dataset_path):
-    dataset = torch.load(dataset_path)  # load the .pt file as a Tensor containing the generated images embeddings
-    print(f"Dataset loaded.")
-    print(f"Dataset of generated images embeddings contain {len(dataset)} samples.")
-    return dataset
+
+    # load input data (i.e., image embeddings) from Tensor in .pt file
+    try:
+        input_data_pt = torch.load(dataset_path)  # load the .pt file as a Tensor containing the generated images embeddings
+        print(f"Dataset loaded.")
+        print(f"Dataset of generated images' embeddings contain {len(input_data_pt)} samples.")
+    except Exception as e:
+        print(f"Error when loading the images' embeddings: {e}")
+
+    # load saved target/label data (and additional info) from csv file into pandas dataframe
+    if image_source == "gen":
+        with open(f'{data_folder_path}{image_source}_images_{sd_version}.csv', 'rb') as f:
+            target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+    elif image_source == "real":
+        with open(f'{data_folder_path}{image_source}_images.csv', 'rb') as f:
+            target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+    else:
+        print("To load the saved data, the image source is not valid. Please choose one of the following: 'real' or 'gen'")
+
+    return input_data_pt, target_data_df
 
 def set_header(data_writer, data_header):
     # write header of the csv file if there is no header yet
@@ -74,20 +91,21 @@ def set_header(data_writer, data_header):
         data_file_has_header = False
         data_writer.writerow(data_header)
 
-def setup_wandb(model, model_name, N_EPOCHS, BATCH_SIZE, LR, OPTIMIZER, CRITERION, DEVICE, use_wandb):
+def setup_wandb(model, LR, OPTIMIZER, CRITERION):
 
-    if use_wandb:
+    if config.use_wandb:
 
         wandb.init(project="GVM-project",
                 config={
-                        "model": model_name,
-                        "epochs": N_EPOCHS,
-                        "batch_size": BATCH_SIZE,
+                        "model": config.pred_model_name,
+                        "epochs": config.n_epochs,
+                        # "batch_size": config.batch_size,  # uncomment if dataloaders are used
                         "learning_rate": LR,
                         "optimizer": OPTIMIZER,
                         "criterion": CRITERION,
-                        "device": DEVICE,
-                        "dataset": "TBD"
+                        "device": C.DEVICE,
+                        "top-k": "k=" + str(config.topk),
+                        "dataset": dataset_file
                         })
 
         # wandb.login()
@@ -98,12 +116,12 @@ def setup_wandb(model, model_name, N_EPOCHS, BATCH_SIZE, LR, OPTIMIZER, CRITERIO
     else:
         wandb.init(mode="disabled")
 
-def create_NN(model_name, nb_features, nb_classes):
+def create_NN(nb_features, nb_classes):
 
-    # print("Number of features: ", nb_features)
-    # print("Number of classes: ", nb_classes)
+    print("Number of features: ", nb_features)
+    print("Number of classes: ", nb_classes)
 
-    if model_name == "linear_nn":
+    if config.pred_model_name == "linear_nn":
         
         class NNLogisticRegression(torch.nn.Module):    
             def __init__(self, nb_features, nb_classes):
@@ -116,7 +134,7 @@ def create_NN(model_name, nb_features, nb_classes):
         
         model = NNLogisticRegression(nb_features, nb_classes)
         
-    elif model_name == "nn":
+    elif config.pred_model_name == "nn":
         
         class MLP(torch.nn.Module):    
             def __init__(self, nb_features, nb_classes):
@@ -136,19 +154,37 @@ def create_NN(model_name, nb_features, nb_classes):
         
         model = MLP(nb_features, nb_classes)
 
+    else:
+        raise ValueError(f"When creating a NN model, got an unknown model name: {config.pred_model_name}")
+
     input_dims = (1, nb_features)   # without batch size
-    summary(model.to(DEVICE), input_dims)
+    summary(model.to(C.DEVICE), input_dims)
     return model
 
-def create_model(model_name, nb_features=None, nb_classes=None):
+def create_model(nb_features=None, nb_classes=None):
 
-    if model_name == "logistic_regression":
-        model = LogisticRegression(max_iter=10000, solver='lbfgs', penalty='l2', n_jobs=-1, verbose=1)
+    if config.pred_model_name == "logistic_regression":
+        if config.add_verbose:
+            verbose = 4
+        else: 
+            verbose = 0
 
-    elif model_name == "xgboost":
+        model = LogisticRegression(penalty='l2', 
+                                   dual=False,
+                                   tol=1e-4,
+                                   C=1,
+                                   solver='lbfgs',
+                                   max_iter=500, 
+                                   n_jobs=-1, 
+                                   warm_start=False,
+                                   verbose=verbose)
 
-        model = xgb.XGBClassifier(objective='multi:softmax', num_class=nb_classes, n_jobs=-1, tree_method="gpu_hist", verbosity=1)
-        
+    elif config.pred_model_name == "xgboost":
+        model = XGBClassifier(objective='multi:softmax', 
+                              num_class=nb_classes, 
+                              n_jobs=-1, 
+                              tree_method="gpu_hist")
+    
         # Set the XGBoost model parameters; see all: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.XGBClassifier
         params_grid = {'base_score': 0.5, 
                         # 'colsample_bylevel': 1, 
@@ -169,34 +205,31 @@ def create_model(model_name, nb_features=None, nb_classes=None):
                         }
         model.set_params(**params_grid)
     
-    elif model_name == "linear_nn":
-        print("Number of features: ", nb_features)
-        print("Number of classes: ", nb_classes)
+    elif config.pred_model_name == "linear_nn":
+        model = create_NN(nb_features, nb_classes)
+        model = model.to(C.DEVICE)
 
-        model = create_NN(model_name, nb_features, nb_classes)
-        model = model.to(DEVICE)
-
-    elif model_name == "nn":
-        print("Number of features: ", nb_features)
-        print("Number of classes: ", nb_classes)
-
-        model = create_NN(model_name, nb_features, nb_classes)
-        model = model.to(DEVICE)
+    elif config.pred_model_name == "nn":
+        model = create_NN(nb_features, nb_classes)
+        model = model.to(C.DEVICE)
+    else:
+        raise ValueError(f"Before creating the model, got an invalid model name: {config.pred_model_name}")
 
     return model
 
-def artists_to_class_numbers_bimap(gen_images_df):
+# create a new column/feature with the class numbers (obtained from the artist classes)
+def artists_to_class_numbers_bimap(target_data_df):
 
-    artists = gen_images_df['artist'].copy()
+    artists = target_data_df['artist'].copy()
     unique_artists = artists.unique()
 
     artists_to_class_numbers = {artist: i for i, artist in enumerate(unique_artists)}
     class_numbers_to_artists = {str(i): artist for i, artist in enumerate(unique_artists)}
 
     # create a column with the artist class numbers in the dataframe
-    gen_images_df['artist_class_number'] = gen_images_df['artist'].map(artists_to_class_numbers)
+    target_data_df['artist_class_number'] = target_data_df['artist'].map(artists_to_class_numbers)
 
-    return gen_images_df['artist_class_number'].copy(), artists_to_class_numbers, class_numbers_to_artists
+    return target_data_df, artists_to_class_numbers, class_numbers_to_artists
 
 def get_artists_from_class_numbers(predictions, class_numbers_to_artists):
     pred_artists = [class_numbers_to_artists[str(int(pred.item()))] for pred in predictions]
@@ -205,14 +238,123 @@ def get_artists_from_class_numbers(predictions, class_numbers_to_artists):
 def get_artists_ranking(ranked_artist_classes, class_numbers_to_artists):
     return [[class_numbers_to_artists[str(artist_class.item())] for artist_class in sample] for sample in ranked_artist_classes]
 
-def prepare_data(dataset, gen_images_df):
+def verify_class_balance(y_train, y_test, class_counts):
+    print("Performing a class balance check on the data sets...\n")
+    print("y_train: ", y_train)
+    print("y_test: ", y_test)
 
-    X = np.array(dataset)
+    nb_classes_train = len(np.unique(y_train))
+    nb_classes_test = len(np.unique(y_test))
+    print("Number of classes in y_train: ", nb_classes_train)
+    print("Number of classes in y_test: ", nb_classes_test)
+    if nb_classes_train == nb_classes_test:
+        print("The train and test sets have the same number of different classes.")
+        nb_classes = nb_classes_train
+    else:
+        raise ValueError("The train and test sets do NOT have the same number of different classes!")
 
-    y, artists_to_class_numbers, class_numbers_to_artists = artists_to_class_numbers_bimap(gen_images_df)
 
-    # Split the data into a training set and a test set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=121997)
+    # count the number of different values in numpy arrays y_train and y_test
+    train_counts = np.unique(y_train, return_counts=True)   # return a tuple with the unique classes and the count of samples per class
+    test_counts = np.unique(y_test, return_counts=True)   # return a tuple with the unique classes and the count of samples per class
+
+    print("Unique classes in train: ", train_counts[0])
+    print("Unique classes in test: ", test_counts[0])
+
+    print("Number of samples per class in train: ", train_counts[1])
+    print("Number of samples per class in test: ", test_counts[1])
+
+    # check that the train and test sets have the same different classes
+    if not np.array_equal(train_counts[0], test_counts[0]):
+        raise ValueError("The train and test sets have different classes!")
+    
+    # check if the number of samples per class in the train set is 80% and the number per class in the test set is 20%
+    warning_flag_class_balance = False
+    for i in range(nb_classes):
+        # print(train_counts[1][i])
+        # print(test_counts[1][i])
+
+        if train_counts[1][i] != (int(config.train_test_ratio * class_counts)) or test_counts[1][i] != (int((10.0 - config.train_test_ratio*10)/10 * class_counts)):  # Note: * 10 and / 10 for numerical stability
+            warning_flag_class_balance = True
+            break
+    
+    if warning_flag_class_balance:
+        print("WARNING: The train and test sets number of samples per class yields a poor class balance across sets!")
+    else:
+        print("The train and test sets number of samples per class yields a good class balance across sets.")
+
+def get_dataset_splits(X, y):
+
+    if config.balance_classes_across_sets:
+        X_train, X_test, y_train, y_test = [], [], [], []
+
+        # NOTE: we assume that the classes are ordered in the same way in the X and y arrays AND 
+        # that the number of samples per artist/class before split is the same for all the artists/classes
+        # TODO: implement for any number of samples per class in the original/complete dataset. Hence modify class_counts everywhere in this function.
+
+        class_counts = y.value_counts()[0]  # get the number of samples per class (assuming same number for all classes!)
+        print("Number of samples per class (assuming same number for all classes!): ", class_counts)
+        n_train = int(class_counts * config.train_test_ratio)
+        n_test = class_counts - n_train
+        nb_classes = y.unique().size
+
+        for class_index in range(nb_classes):
+            k = class_index * class_counts
+            X_train.extend(X[k:k + n_train])
+            y_train.extend(y[k:k + n_train])
+
+            X_test.extend(X[k + n_train:k + n_train + n_test])
+            y_test.extend(y[k + n_train:k + n_train + n_test])
+
+        # map to numpy arrays since we X_train/X_test is a Python list
+        X_train = list(map(np.asarray, X_train))
+        X_test = list(map(np.asarray, X_test))
+
+        X_train = np.asarray(X_train)
+        X_test = np.asarray(X_test)
+        y_train = np.asarray(y_train)
+        y_test = np.asarray(y_test)
+
+        if config.rand_shuffle_data:
+            # randomly shuffle the numpy arrays X_train and y_train in the same way
+            indices_train = np.random.permutation(len(X_train)) # generate a random permutation of indices
+            X_train = X_train[indices_train]
+            y_train = y_train[indices_train]
+
+            # randomly shuffle the numpy arrays X_test and y_test in the same way
+            indices_test = np.random.permutation(len(X_test)) # generate a random permutation of indices
+            X_test = X_test[indices_test]
+            y_test = y_test[indices_test]
+
+    else:
+        # split the data randomly (and without class balancing across the splits/sets) into a training set and a test set
+        X_train, X_test, y_train, y_test = train_test_split(X, y, 
+                                                            train_size=config.train_test_ratio, 
+                                                            test_size=1-config.train_test_ratio, 
+                                                            shuffle=config.rand_shuffle_data, 
+                                                            random_state=config.seed)
+
+        # convert the train and test sets back to numpy arrays
+        X_train = np.asarray(X_train)
+        X_test = np.asarray(X_test)
+        y_train = np.asarray(y_train)
+        y_test = np.asarray(y_test)
+
+    if config.verify_class_balance:
+        class_counts = y.value_counts()[0]  # get the number of samples per class (assuming same number for all classes!)
+        verify_class_balance(y_train, y_test, class_counts)
+
+    return X_train, X_test, y_train, y_test
+
+def prepare_data(input_data_pt, target_data_df):
+
+    # X = np.array(input_data_pt)
+    X = input_data_pt
+    target_data_df, artists_to_class_numbers, class_numbers_to_artists = artists_to_class_numbers_bimap(target_data_df)
+
+    y = target_data_df['artist_class_number'].copy()
+
+    X_train, X_test, y_train, y_test = get_dataset_splits(X, y)
 
     print("Number of samples in X_train: ", len(X_train))
     print("Number of samples in y_train ", len(y_train))
@@ -221,7 +363,7 @@ def prepare_data(dataset, gen_images_df):
 
     sample_size = X_train[1].shape[0]   # len(X_train[0]); number of features of each sample (i.e., size of the embedding vector of each image)
 
-    print("Splitted the dataset into (X,y) pairs of train and test sets.")
+    print("Split the dataset into (X,y) pairs of train and test sets.")
 
     dataset_splits = {'X_train': X_train, 'X_test': X_test, 'y_train': y_train, 'y_test': y_test}
 
@@ -253,31 +395,30 @@ def create_dataloaders(dataset_splits):
     test_dataset = ArtDataset(X_test, y_test)
 
     # Create a DataLoader
-    batch_size = 32
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)  # TODO: set True
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 
     # print("Number of batches in train loader: ", len(train_loader))
     # print("Number of batches in test loader: ", len(test_loader))
 
     dataloaders = {'train_loader': train_loader, 'test_loader': test_loader}
 
-    return dataloaders, batch_size
+    return dataloaders
 
-def compute_topk_accuracy(probabilities, gt_labels, k, method = "method1"):
+def compute_topk_accuracy(probabilities, gt_labels, method = "method1"):
 
     # get the ranking of classes/artists
     sorted_classes, class_ranking_indices = torch.sort(probabilities, descending=True)  # if element at i is j, then class j is the top-i prediction
 
     if method == "method1":
-        top_k_classes = class_ranking_indices[:, :k]
+        top_k_classes = class_ranking_indices[:, :config.topk]
         correct_predictions = torch.sum(top_k_classes == torch.Tensor(gt_labels).unsqueeze(1), dim=1)   # creare boolean Tensor and sume (True is 1 and False is 0)
         topk_accuracy = torch.mean(correct_predictions.float())
     
     elif method == "method2":
-        top_probs, top_k_classes = probabilities.cpu().topk(k, dim=-1)
+        top_probs, top_k_classes = probabilities.cpu().topk(config.topk, dim=-1)
         topk_correct = 0
-        for i in range(k):
+        for i in range(config.topk):
             top_one_labels = top_k_classes[:, i]
             correct = torch.sum(torch.Tensor(top_one_labels) == torch.Tensor(gt_labels))
             topk_correct += correct
@@ -285,71 +426,157 @@ def compute_topk_accuracy(probabilities, gt_labels, k, method = "method1"):
 
     return topk_accuracy, top_k_classes, class_ranking_indices
 
-def predict(model, model_name, X, y, X_test=None, y_test=None, train_loader=None, test_loader=None):
+def predict(model, X, y, X_test=None, y_test=None, train_loader=None, test_loader=None):
 
-    if model_name == "logistic_regression":
+    if config.pred_model_name == "logistic_regression":
         y_pred = model.predict(X)
         accuracy = accuracy_score(y, y_pred)
         # accuracy = model.score(X, y)    # same as accuracy_score(y, y_pred)
         print(f"Accuracy: {accuracy*100:.3}%")
 
-    elif model_name == "xgboost":
-        print("Predicting with XGBoost model...")
+        probabilities = model.predict_proba(X)
+        probabilities = torch.Tensor(probabilities)
 
+    elif config.pred_model_name == "xgboost":
         y_pred = model.predict(X)
         accuracy = accuracy_score(y, y_pred)
         print(f"Accuracy: {accuracy*100:.3}%")
 
-    elif model_name == "linear_nn" or model_name == "nn":
-        k = 5
-        with torch.no_grad():
-            logits = model(torch.Tensor(np.asarray(X)).to(DEVICE))
+        probabilities = model.predict_proba(X)
+        probabilities = torch.Tensor(probabilities)
 
-            # TODO: softmax or log_softmax?
-            probabilities = F.log_softmax(logits.cpu(), dim=1)    # dim=1 to compute along the class dimension. 
+    elif config.pred_model_name in ["linear_nn", "nn"]:
+        with torch.no_grad():
+            logits = model(torch.Tensor(np.asarray(X)).to(C.DEVICE))
+            probabilities = F.log_softmax(logits.cpu(), dim=1)    # dim=1 to compute along the class dimension; TODO: softmax or log_softmax? 
             _, y_pred = torch.max(probabilities, 1)
             accuracy = (torch.Tensor(np.asarray(y_pred)) == torch.Tensor(np.asarray(y))).float().mean()
             accuracy = accuracy.item()
             print(f"Accuracy: {accuracy*100:.3}%")
             
-            topk_accuracy, top_k_pred_classes, class_ranking_indices = compute_topk_accuracy(probabilities, y, k=k)
-            print(f"Top {k} accuracy is {topk_accuracy*100:.3}%")
-            
+    else:
+        raise ValueError(f"Before predicting, got an invalid model name: {config.pred_model_name}")
+
+    # Get the top-k predicted classes and compute top-k accuracy
+    topk_accuracy, top_k_pred_classes, class_ranking_indices = compute_topk_accuracy(probabilities, y)
+    print(f"Top {config.topk} accuracy is {topk_accuracy*100:.3}%")
+        
     y = torch.Tensor(np.asarray(y))
     y_pred = torch.Tensor(np.asarray(y_pred))
 
-    if model_name in ["linear_nn", "nn"]:
-        return y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices
-    else:
-        return y, y_pred, accuracy, None, None, None
+    return y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices
 
-def train(model, model_name, X_train, X_test, y_train, y_test, train_loader=None, test_loader=None, n_epochs=None, learning_rate=None, criterion=None, optimizer=None):
+def train(model, X_train, X_test, y_train, y_test, train_loader=None, test_loader=None, criterion=None, optimizer=None):
     
-    if model_name == "logistic_regression":
-        # Train the model
-        model.fit(X_train, y_train)
+    print(f"Training the model {config.pred_model_name}...")
 
-    elif model_name == "xgboost":
-        # Train the model
-        model = model.fit(X_train, y_train)
+    if config.pred_model_name == "logistic_regression":
 
-    elif model_name == "linear_nn" or model_name == "nn":
+        if config.use_grid_search:
+            nb_params_combinations = 5
+            skf = StratifiedKFold(n_splits=config.k_folds, shuffle=False)
 
-        print_at_n_epochs = 50
+            params_grid = dict(C=uniform(loc=0, scale=4), penalty=['l2', 'l1'])
 
-        use_tqdm = True
-        if use_tqdm:
-            t = trange(n_epochs, desc='Loss', leave=True)
+            if config.add_verbose:
+                verbose = 4
+            else: 
+                verbose = 0
+
+            # see: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV
+            # model = GridSearchCV(model, 
+            #                      param_distributions=params_grid, 
+            #                      n_iter=nb_params_combinations, 
+            #                      scoring='accuracy',
+            #                      n_jobs=4, 
+            #                      cv=skf.split(X_train,y_train),
+            #                      verbose=verbose, 
+            #                      random_state=121997)
+
+            # see: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html
+            model = RandomizedSearchCV(model,
+                                       param_distributions=params_grid,
+                                       n_iter=nb_params_combinations,
+                                       scoring='accuracy',  # top_k_accuracy, balanced_accuracy, roc_auc, jaccard. See: https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
+                                       n_jobs=4, 
+                                       cv=skf.split(X_train,y_train), 
+                                       verbose=verbose, 
+                                       random_state=121997)
+            
+            # set the model with the best hyper-parameters found during the (random) grid search
+            model.set_params(**model.best_params_)
+        
+            model.fit(X_train, y_train, verbose=verbose)
+        
+        else: 
+            model.fit(X_train, y_train)   # here we could also pass an eval set with eval_set=[(X_val, y_val)]
+
+    elif config.pred_model_name == "xgboost":
+        if config.add_verbose:
+            verbose = 4
+        else: 
+            verbose = 0
+
+        if config.use_grid_search:     # see: https://www.kaggle.com/code/tilii7/hyperparameter-grid-search-with-xgboost/notebook
+            nb_params_combinations = 5
+
+            skf = StratifiedKFold(n_splits=config.k_folds, shuffle=False)
+
+            params_grid = {
+                'min_child_weight': [1, 5, 10],
+                'gamma': [0.5, 1, 1.5, 2, 5],
+                'subsample': [0.6, 0.8, 1.0],
+                'colsample_bytree': [0.6, 0.8, 1.0],
+                'max_depth': [3, 4, 5]
+                }
+            
+            # see: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV
+            # model = GridSearchCV(model, 
+            #                      param_distributions=params_grid, 
+            #                      n_iter=nb_params_combinations, 
+            #                      scoring='accuracy',
+            #                      n_jobs=4, 
+            #                      cv=skf.split(X_train,y_train),
+            #                      verbose=verbose, 
+            #                      random_state=121997)
+
+            # see: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html
+            model = RandomizedSearchCV(model, 
+                                       param_distributions=params_grid, 
+                                       n_iter=nb_params_combinations, 
+                                       scoring='accuracy',  # top_k_accuracy, balanced_accuracy, roc_auc, jaccard. See: https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
+                                       n_jobs=4, 
+                                       cv=skf.split(X_train,y_train), 
+                                       verbose=verbose, 
+                                       random_state=121997)
+
+            if config.add_verbose:
+                print('\n Best estimator:')
+                print(model.best_estimator_)
+                print('\n Best score:')
+                print(model.best_score_)
+                print('\n Best hyper-parameters:')
+                print(model.best_params_)
+
+            # set the model with the best hyper-parameters found during the (random) grid search
+            model.set_params(**model.best_params_)
+
+        model.fit(X_train, y_train, verbose=verbose)   # here we could also pass an eval set with eval_set=[(X_val, y_val)]
+
+    elif config.pred_model_name in ["linear_nn", "nn"]:
+
+        if config.use_tqdm:
+            t = trange(config.n_epochs, desc='Loss', leave=True)
         else:
-            t = range(n_epochs)
+            t = range(config.n_epochs)
 
         # Train the model
         for epoch in t:  # number of epochs
             for X, y in train_loader:
 
                 # Set data to GPU if possible
-                X = X.to(DEVICE)
-                y = y.to(DEVICE)
+                X = X.to(C.DEVICE)
+                y = y.to(C.DEVICE)
 
                 # Zero the gradients
                 optimizer.zero_grad()
@@ -360,7 +587,7 @@ def train(model, model_name, X_train, X_test, y_train, y_test, train_loader=None
                 probabilities = F.log_softmax(logits, dim=1)    # TODO: softmax or log_softmax?
 
                 # Compute the loss
-                loss = criterion(probabilities, y)     # no need to apply softmax if using cross-entropy loss
+                loss = criterion(probabilities, y)     # no need to apply softmax if criterion is PyTorch CrossEntropyLoss()
 
                 # Backward pass
                 loss.backward()
@@ -368,66 +595,70 @@ def train(model, model_name, X_train, X_test, y_train, y_test, train_loader=None
                 # Optimization step (update weights/parameters)
                 optimizer.step()
 
-            # print(f"Epoch {epoch + 1}, Loss: {loss.item()}")
-            t.set_description(f"loss: {loss.item()}")
+            if config.use_tqdm:
+                t.set_description(f"loss: {loss.item()}")
+            else:
+                print(f"Epoch {epoch + 1}, Loss: {loss.item()}")
+
             wandb.log({f"Epoch loss: ": loss.item()})
 
-            if (epoch+1) % print_at_n_epochs == 0:
-                print("Predicting on train set at epoch ", epoch+1)
-                _, _, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, model_name, X_train, y_train, train_loader=None, test_loader=None)
-                wandb.log({f"Every {print_at_n_epochs} epochs train accuracy: ": accuracy*100})
-                wandb.log({f"Every {print_at_n_epochs} epochs train TOP-K accuracy: ": topk_accuracy*100})
+            if (epoch+1) % config.print_at_n_epochs == 0:
+                print("Predicting on train set at epoch ", epoch+1, "...")
+                _, _, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, X_train, y_train, train_loader=None, test_loader=None)   # Sanity check: evaluate the model on the training set
+                wandb.log({f"Every {config.print_at_n_epochs} epochs train accuracy: ": accuracy*100})
+                wandb.log({f"Every {config.print_at_n_epochs} epochs train TOP-{config.topk} accuracy: ": topk_accuracy*100})
         
+    else:
+        raise ValueError(f"Before training, got an invalid model name: {config.pred_model_name}")
+    
     print("\n")
     # print("Predicting on train set...")
-    # y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, model_name, X_train, y_train, train_loader=None, test_loader=None)   # Sanity check: evaluate the model on the training set
+    # y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, pred_model_name, X_train, y_train, train_loader=None, test_loader=None, k=topk)   # Sanity check: evaluate the model on the training set
     # print("Predicting on test set...")
-    # y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, model_name, X_test, y_test, train_loader=None, test_loader=None)    # Actual evaluation: evaluate the model on the test set
+    # y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, pred_model_name, X_test, y_test, train_loader=None, test_loader=None, k=topk)    # Actual evaluation: evaluate the model on the test set
 
     return model
 
-def run_training(model, model_name, dataset_splits, use_wandb):
+def run_training(model, dataset_splits):
 
-    X_train = np.asarray(dataset_splits['X_train'])
-    X_test = np.asarray(dataset_splits['X_test'])
-    y_train = np.asarray(dataset_splits['y_train'])
-    y_test = np.asarray(dataset_splits['y_test'])
+    X_train = dataset_splits['X_train']
+    X_test = dataset_splits['X_test']
+    y_train = dataset_splits['y_train']
+    y_test = dataset_splits['y_test']
 
-    if model_name == 'logistic_regression':
-        trained_model = train(model, model_name, X_train, X_test, y_train, y_test)
+    if config.pred_model_name == 'logistic_regression':
+        trained_model = train(model, X_train, X_test, y_train, y_test)
 
-    elif model_name == 'xgboost':
-        trained_model = train(model, model_name, X_train, X_test, y_train, y_test)
+    elif config.pred_model_name == 'xgboost':
+        trained_model = train(model, X_train, X_test, y_train, y_test)
 
-    elif model_name == 'linear_nn':
-        dataloaders, batch_size = create_dataloaders(dataset_splits)
+    elif config.pred_model_name == 'linear_nn':
+        dataloaders = create_dataloaders(dataset_splits)
         train_loader = dataloaders['train_loader']
         test_loader = dataloaders['test_loader']
         
         nb_features = X_train.shape[1]  # length of the image embeddings
 
-        n_epochs = 400
-        learning_rate = 0.0001 # use 0.1 for SGD and 0.0001 for Adam
+        learning_rate = 0.1 # use 0.1 for SGD and 0.0001 for Adam
 
         # Define the loss function and the optimizer for the NN model
         criterion = nn.NLLLoss()
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-        # optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+        # optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
         # setup WandB
-        setup_wandb(model, model_name, n_epochs, batch_size, learning_rate, optimizer, criterion, DEVICE, use_wandb)
+        setup_wandb(model, learning_rate, optimizer, criterion)
 
-        trained_model = train(model, model_name, X_train, X_test, y_train, y_test, train_loader, test_loader, n_epochs, learning_rate, criterion, optimizer)
+        trained_model = train(model, X_train, X_test, y_train, y_test, train_loader, test_loader, criterion, optimizer)
 
 
-    elif model_name == 'nn':
-        dataloaders, batch_size = create_dataloaders(dataset_splits)
+    elif config.pred_model_name == 'nn':
+        dataloaders = create_dataloaders(dataset_splits)
         train_loader = dataloaders['train_loader']
         test_loader = dataloaders['test_loader']
 
         nb_features = X_train.shape[1]  # length of the image embeddings
 
-        n_epochs = 400
         learning_rate = 0.1 # use 0.1 for SGD and 0.0001 for Adam
 
         # Define the loss function and the optimizer
@@ -436,27 +667,31 @@ def run_training(model, model_name, dataset_splits, use_wandb):
         optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
         # setup WandB
-        setup_wandb(model, model_name, n_epochs, batch_size, learning_rate, optimizer, criterion, DEVICE, use_wandb)
+        setup_wandb(model, learning_rate, optimizer, criterion)
 
-        trained_model = train(model, model_name, X_train, X_test, y_train, y_test, train_loader, test_loader, n_epochs, learning_rate, criterion, optimizer)
-        
+        trained_model = train(model, X_train, X_test, y_train, y_test, train_loader, test_loader, criterion, optimizer)
+    
+    else:
+        raise ValueError(f"Before starting training, got an invalid model name: {config.pred_model_name}")
 
     return trained_model
 
-def run_evaluation(trained_pred_model, pred_model_name, dataset_splits, class_numbers_to_artists):
+def run_evaluation(trained_pred_model, dataset_splits, class_numbers_to_artists):
 
-    if pred_model_name in ['linear_nn', 'nn']:
+    if config.pred_model_name in ['linear_nn', 'nn']:
         # create the dataloaders for NN model training
-        dataloaders, batch_size = create_dataloaders(dataset_splits)
+        dataloaders = create_dataloaders(dataset_splits)
         train_loader = dataloaders['train_loader']
         test_loader = dataloaders['test_loader']
-    else:
+    elif config.pred_model_name in ['logistic_regression', 'xgboost']:
         train_loader = None
         test_loader = None
-
+    else:
+        raise ValueError(f"Before starting evaluation, got an invalid model name: {config.pred_model_name}")
+    
     # predict on train set
     print("Predict on train set...")
-    y_train, y_pred_train, accuracy_train, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(trained_pred_model, pred_model_name, np.asarray(dataset_splits['X_train']), np.asarray(dataset_splits['y_train']), X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+    y_train, y_pred_train, accuracy_train, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(trained_pred_model, np.asarray(dataset_splits['X_train']), np.asarray(dataset_splits['y_train']), X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
 
     pred_artists = get_artists_from_class_numbers(y_pred_train, class_numbers_to_artists)   # convert class numbers predictions to explicit artist classes (i.e., names of the artists)
     # print("Train predictions (with explicit artist classes): ", pred_artists)      
@@ -474,7 +709,7 @@ def run_evaluation(trained_pred_model, pred_model_name, dataset_splits, class_nu
 
     # predict on test set
     print("Predict on test set...")
-    y_test, y_pred_test, accuracy_test, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(trained_pred_model, pred_model_name, np.asarray(dataset_splits['X_test']), np.asarray(dataset_splits['y_test']), X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+    y_test, y_pred_test, accuracy_test, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(trained_pred_model, np.asarray(dataset_splits['X_test']), np.asarray(dataset_splits['y_test']), X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
     pred_artists = get_artists_from_class_numbers(y_pred_test, class_numbers_to_artists)   # convert class numbers predictions to explicit artist classes (i.e., names of the artists)
     # print("Test predictions (with explicit artist classes): ", pred_artists)
 
@@ -491,57 +726,61 @@ def run_evaluation(trained_pred_model, pred_model_name, dataset_splits, class_nu
 
     print("\n")  
 
-def run_experiment(pred_model_name, dataset_splits, sample_size, nb_classes, class_numbers_to_artists, eval_mode=False, use_wandb=False):
-    if pred_model_name in ["logistic_regression", "xgboost", "nn", "linear_nn"]:
+def run_experiment(dataset_splits, sample_size, nb_classes, class_numbers_to_artists):
+    if config.pred_model_name in ["logistic_regression", "xgboost", "nn", "linear_nn"]:
         
         # create the predictive model
-        pred_model = create_model(pred_model_name, sample_size, nb_classes)
+        pred_model = create_model(sample_size, nb_classes)
         
         # train the predictive model
-        trained_pred_model = run_training(pred_model, pred_model_name, dataset_splits, use_wandb)
+        trained_pred_model = run_training(pred_model, dataset_splits)
 
-        if eval_mode:
+        if config.eval_mode:
             # evaluate the predictive model
-            run_evaluation(trained_pred_model, pred_model_name, dataset_splits, class_numbers_to_artists)
+            run_evaluation(trained_pred_model, dataset_splits, class_numbers_to_artists)
 
     else:
         print("The predictive model name is not valid. Please choose one of the following: logistic_regression, xgboost, nn, linear_nn")
 
 if __name__ == '__main__':
 
-    seed_everything()
-    
-    DEVICE = get_cuda_gpu_info()
+    # display information on cuda/GPU
+    show_cuda_gpu_info()
 
-    command_line_parser = argparse.ArgumentParser()
+    # get the config
+    config = Configuration.parse_cmd()
 
-    command_line_parser.add_argument("--sd_version", type=float, default=1.5, help="Stable Diffusion version: 1.5 or 2.1")
-    command_line_parser.add_argument("--clip_version", type=str, default="OpenAI", help="CLIP version: OpenAI or Laion2b")
-    command_line_parser.add_argument("--pred_model_name", type=str, default="nn", help="Name of the predictive model: logistic_regression, xgboost, linear_nn, nn")
-    command_line_parser.add_argument("--eval_mode", action='store_true', default=False, help="Whether to explicitly perform a model evaluation or not during the experiment run.")
-    command_line_parser.add_argument("--use_wandb", action='store_true', default=False, help="Whether to explicitly perform a model evaluation or not during the experiment run.")
-
-    args = command_line_parser.parse_args()
+    # seed everything for reproducibility
+    seed_everything(config.seed)
 
     # format the command line arguments given
-    sd_version = str(args.sd_version).replace('.', '_')
-    clip_version = args.clip_version.lower()
-    pred_model_name = args.pred_model_name
-    eval_mode = args.eval_mode
-    use_wandb = args.use_wandb
+    sd_version = str(config.sd_version).replace('.', '_')
+    clip_version = config.clip_version.lower()
+    image_source = config.image_source.lower()
 
     # define the data folder path
     data_folder_path = "./Experiment/Data/"
 
     # define the path to embeddings dataset
-    if clip_version == "openai":
-        dataset_path = f'{data_folder_path}sd_{sd_version}_{clip_version}_ViT-B-32.pt'
-    elif clip_version == "laion2b":
-        dataset_path = f'{data_folder_path}sd_{sd_version}_{clip_version}_s34b_b79k_ViT-B-32.pt'
+    if image_source == "gen":
+        if clip_version == "openai":
+            dataset_file = f'sd_{sd_version}_{clip_version}_ViT-B-32.pt'
+        elif clip_version == "laion2b":
+            dataset_file = f'sd_{sd_version}_{clip_version}_s34b_b79k_ViT-B-32.pt'
+        else:
+            print("The CLIP version is not valid. Please choose one of the following: 'OpenAI' or 'Laion2b'")
 
-    # load saved data csv file into pandas dataframe
-    with open(f'{data_folder_path}gen_images_{sd_version}.csv', 'rb') as f:
-        gen_images_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+    elif image_source == "real":
+        if clip_version == "openai":
+            dataset_file = f'{image_source}_{clip_version}_ViT-B-32.pt'
+        elif clip_version == "laion2b":
+            dataset_file = f'{image_source}_{clip_version}_s34b_b79k_ViT-B-32.pt'
+        else:
+            print("The CLIP version is not valid. Please choose one of the following: 'OpenAI' or 'Laion2b'")
+    else:
+        print("To define the name of the dataset file, the image source is not valid. Please choose one of the following: 'real' or 'gen'")
+
+    model_input_data_path = f'{data_folder_path}{dataset_file}'
 
     # open file and create writer to save the data
     new_dataset_path = f"{data_folder_path}new_data.csv"
@@ -551,15 +790,15 @@ if __name__ == '__main__':
     set_header(data_writer, data_header)
 
     # load the dataset
-    input_data = load_dataset(dataset_path)
+    input_data_pt, target_data_df = load_dataset(model_input_data_path)
 
     # print the <index> image embedding from the dataset as a sanity check
     index = 0
-    # print(f"CLIP embedding of the {index} generated image: {input_data[index]}")
-    # print(f"Length of CLIP embedding of the {index} generated image (i.e., size of the embedding vector used as input to the predictive model): {len(input_data[index])}")
+    # print(f"CLIP embedding of the {index} image/artwork: {input_data[index]}")
+    # print(f"Length of CLIP embedding of the {index} image/artwork (i.e., size of the embedding vector used as input to the predictive model): {len(input_data[index])}")
 
     # dataset_splits is a dict with the splitted dataset subsets: X_train, X_test, y_train, y_test
-    sample_size, dataset_splits, artists_to_class_numbers, class_numbers_to_artists = prepare_data(input_data, gen_images_df)
+    sample_size, dataset_splits, artists_to_class_numbers, class_numbers_to_artists = prepare_data(input_data_pt, target_data_df)
 
     print("A sample (i.e., image vector embedding) is of size (i.e., a sample has this many features): ", sample_size)
 
@@ -567,7 +806,8 @@ if __name__ == '__main__':
     print(f"We have a {nb_classes} classes classification problem.")  
 
     # run the experiment
-    run_experiment(pred_model_name, dataset_splits, sample_size, nb_classes, class_numbers_to_artists, eval_mode=eval_mode, use_wandb=use_wandb)
+    print("Starting the experiment run...")
+    run_experiment(dataset_splits, sample_size, nb_classes, class_numbers_to_artists)
 
     # close csv file as nothing more to write for now
     data_csv_file.close()
