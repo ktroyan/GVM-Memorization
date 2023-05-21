@@ -1,5 +1,16 @@
 # Readme
 
+## Real Images
+
+### Historic Data
+
+- [[images in .zip](https://drive.google.com/file/d/1ZAegLoQ20XXI1tWDgOZFVJdEraMW6Bqd/view?usp=sharing)] [[image descriptions](https://drive.google.com/file/d/1ZX1GpSbKcLjbdA48TNVdEIPQ-FgaldUr/view?usp=sharing)]
+- CLIP Image embeddings:
+    - [[openai](https://drive.google.com/file/d/1HWUpYLGZErlhaahLladfFj0YuebhjY9s/view?usp=sharing)] [[laion2b](https://drive.google.com/file/d/10ZnfiCjCw-ELPcWCiU0sZO0lwmKdyOtH/view?usp=sharing)]
+
+### ArtStation Data
+
+
 
 ## Generated Images
 
