@@ -17,11 +17,19 @@ import requests
 import argparse
 
 def scroll_down_webpage(driver, nb_scroll_updates):
-	for i in range(nb_scroll_updates):
-		html_element = driver.find_element(By.TAG_NAME, 'html')
-		html_element.send_keys(Keys.END)
-		print(f"Scrolled {i} times until now.")
-		time.sleep(2)
+	# for i in range(nb_scroll_updates):
+		# html_element = driver.find_element(By.TAG_NAME, 'html')
+		# html_element.send_keys(Keys.END)
+		# html_element.send_keys(Keys.PAGE_DOWN)
+
+		# driver.execute_script("window.scrollBy(0, 250)")
+		# driver.execute_script("window.scrollTo(0, window.scrollY + 200)")
+		# time.sleep(2)
+
+	scroll_element = driver.find_element(By.ID, "fb-root")
+	driver.execute_script("arguments[0].scrollIntoView();", scroll_element)
+	# driver.execute_script('window.scrollTo(0, document.getElementById("fb-root").scrollHeight);')
+	print("scrolling")
 
 def start_scraping(driver, data_writer, nb_scroll_updates, min_nb_followers):
 
@@ -29,13 +37,20 @@ def start_scraping(driver, data_writer, nb_scroll_updates, min_nb_followers):
 
 	# go to the webpage that lists the artists on ArtStation
 	googleart_artists_webpage = "https://www.artstation.com/search/artists?sort_by=followers&followers_count_more_than=" + str(min_nb_followers)
-	driver.get(googleart_artists_webpage)
+	
+	try:
+		driver.get(googleart_artists_webpage)
+		time.sleep(5)	# wait until the page has loaded
+		wait_driver.until(EC.visibility_of_element_located((By.XPATH, ".//div[@class='filter-content-count text-muted']")))
+	except TimeoutException:
+		print("TimeoutException: The webpage did not load in time.")
+		return
 
-
-	# wait until the page has loaded
-	time.sleep(5)
-	wait_driver.until(
-    EC.visibility_of_element_located((By.XPATH, ".//div[@class='filter-content-count text-muted']")))
+	
+	grid_view_button = driver.find_element(by=By.XPATH, value=".//button[@class='btn btn-default active']")
+	time.sleep(2)
+	grid_view_button.click()
+	time.sleep(2)
 
 	# scroll down the webpage several times to update the number of artists present on the webpage
 	scroll_down_webpage(driver, nb_scroll_updates)
