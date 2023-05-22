@@ -282,3 +282,127 @@ Number of generated images (* with filtered artists): 3705 (247 artists x 15 ima
 |A glamorous and luxurious yacht sailing in the open sea with a beautiful sunset in the background.|1.2%|
 |A postcard-perfect Italian village with narrow streets, terracotta roofs, and a picturesque town square with a fountain.|0.8%|
 |A vibrant and colorful scene of a street market in Marrakech, Morocco with spices, textiles, and street performers.|0.4%|
+
+## Error analysis on generated images (artstation)
+
+### SD 1.5 with openai + ViT-B-32
+
+|Artist name|Accuracy|
+|---|---|
+|Romain Jouandeau|13.33%|
+|Sergey Kolesov|13.33%|
+|Wenjun Lin|6.67%|
+|Jakub Rozalski|6.67%|
+|Ching Yeh|6.67%|
+|Raphael Lacoste|6.67%|
+|SIXMOREVODKA STUDIO|6.67%|
+|Wadim Kashin|6.67%|
+|Anton Fadeev|6.67%|
+|Sebastian Luca|6.67%|
+|...|...|
+
+|Artist prompts|Accuracy|  
+|---|---|
+|A surreal cityscape with floating buildings, a rainbow bridge, and a giant clocktower in the center.|1.52%|
+|A dramatic mountain climber scene with a group of mountaineers scaling a sheer cliff face, braving wind and cold to reach the summit.|1.14%|
+|A snowy wonderland with towering ice sculptures, sleighs, and a castle made of ice.|1.14%|
+|A mystical and spiritual scene of a meditating monk in a temple surrounded by cherry blossoms.|0.76%|
+|A dreamy and surreal cloudscape scene with fluffy white clouds, a rainbow, and a hot air balloon floating in the distance.|0.76%|
+|...|...|
+|A peaceful and romantic scene of a couple sitting in a gondola, being serenaded on a moonlit canal in Venice, Italy.|0.38%|
+|A cozy and festive holiday scene with a fireplace, stockings, and a Christmas tree decorated with lights and ornaments.|0.38%|
+|An exciting and adrenaline-fueled scene of a hot air balloon race over a vast canyon.|0.0%|
+|A majestic and awe-inspiring scene of a safari in Africa with elephants, lions, and a beautiful sunset in the background.|0.0%|
+|A romantic and dreamy scene of a couple in a hot air balloon, floating over a picturesque countryside.|0.0%|
+
+
+### SD 1.5 with laion2b_s34b_b79k + ViT-B-32
+
+|Artist name|Accuracy|
+|---|---|
+|Stepan Alekseev|20.0%|
+|Sylvain Sarrailh|13.33%|
+|Alex Flores|13.33%|
+|Paul Chadeisson|6.67%|
+|Nivanh Chanthara|6.67%|
+|Romain Jouandeau|6.67%|
+|Finnian MacManus|6.67%|
+|Bastien Grivet|6.67%|
+|Maxim Verehin|6.67%|
+|Khyzyl Saleem|6.67%|
+|...|...|
+
+|Artist prompts|Accuracy|  
+|---|---|
+|An exciting and adrenaline-fueled scene of a hot air balloon race over a vast canyon.|1.14%|
+|A cozy and festive holiday scene with a fireplace, stockings, and a Christmas tree decorated with lights and ornaments.|1.14%|
+|A dynamic and exciting skateboard park with jumps, ramps, and half-pipes, surrounded by the city skyline.|0.76%|
+|A majestic and awe-inspiring scene of a safari in Africa with elephants, lions, and a beautiful sunset in the background.|0.76%|
+|A romantic and picturesque scene of a couple stargazing in a field at night, with shooting stars and the Milky Way overhead.|0.76%|
+|...|...|
+|A mystical forest with a majestic unicorn standing in a clearing, surrounded by glowing flowers.|0.38%|
+|A surreal cityscape with floating buildings, a rainbow bridge, and a giant clocktower in the center.|0.38%|
+|A mystical and spiritual scene of a meditating monk in a temple surrounded by cherry blossoms.|0.0%|
+|A dreamy and surreal cloudscape scene with fluffy white clouds, a rainbow, and a hot air balloon floating in the distance.|0.0%|
+|A snowy wonderland with towering ice sculptures, sleighs, and a castle made of ice.|0.0%|
+
+### SD 2.1 with openai + ViT-B-32
+
+|Artist name|Accuracy|
+|---|---|
+|Quentin Mabille|20.0%|
+|Sergey Kolesov|20.0%|
+|Aleriia_V (lerapi)|13.33%|
+|Sylvain Sarrailh|6.67%|
+|Anato Finnstark|6.67%|
+|Raf Grassetti|6.67%|
+|Jakub Rozalski|6.67%|
+|Andreas Rocha|6.67%|
+|Raphael Lacoste|6.67%|
+|Romain Jouandeau|6.67%|
+|...|...|
+
+|Artist prompts|Accuracy|  
+|---|---|
+|A mystical forest with a majestic unicorn standing in a clearing, surrounded by glowing flowers.|1.52%|
+|A dreamy and surreal cloudscape scene with fluffy white clouds, a rainbow, and a hot air balloon floating in the distance.|1.14%|
+|A romantic and picturesque scene of a couple stargazing in a field at night, with shooting stars and the Milky Way overhead.|1.14%|
+|An exciting and adrenaline-fueled scene of a hot air balloon race over a vast canyon.|0.76%|
+|A dynamic and exciting skateboard park with jumps, ramps, and half-pipes, surrounded by the city skyline.|0.76%|
+|...|...|
+|A spooky and eerie abandoned carnival scene with empty rides, broken lights, and a creepy clown lurking in the shadows.|0.38%|
+|A mystical and spiritual scene of a meditating monk in a temple surrounded by cherry blossoms.|0.38%|
+|A surreal cityscape with floating buildings, a rainbow bridge, and a giant clocktower in the center.|0.38%|
+|A cozy and festive holiday scene with a fireplace, stockings, and a Christmas tree decorated with lights and ornaments.|0.38%|
+|A peaceful and romantic scene of a couple sitting in a gondola, being serenaded on a moonlit canal in Venice, Italy.|0.0%|
+
+
+### SD 2.1 with laion2b_s34b_b79k + ViT-B-32
+
+|Artist name|Accuracy|
+|---|---|
+|Bastien Grivet|13.33%|
+|Sylvain Sarrailh|6.67%|
+|Jama Jurabaev|6.67%|
+|Ismail Inceoglu|6.67%|
+|Andreas Rocha|6.67%|
+|Raphael Lacoste|6.67%|
+|Anna Podedworna|6.67%|
+|Victor Titov|6.67%|
+|Marco Plouffe (Keos Masons)|6.67%|
+|Anton Fadeev|6.67%|
+|...|...|
+
+|Artist prompts|Accuracy|  
+|---|---|
+|An exciting and adrenaline-fueled scene of a hot air balloon race over a vast canyon.|1.14%|
+|A spooky and eerie abandoned carnival scene with empty rides, broken lights, and a creepy clown lurking in the shadows.|1.14%|
+|A mystical and spiritual scene of a meditating monk in a temple surrounded by cherry blossoms.|1.14%|
+|A vibrant and colorful scene of a street market in Marrakech, Morocco with spices, textiles, and street performers.|0.76%|
+|A romantic and picturesque scene of a couple stargazing in a field at night, with shooting stars and the Milky Way overhead.|0.76%|
+|...|...|
+|A peaceful and romantic scene of a couple sitting in a gondola, being serenaded on a moonlit canal in Venice, Italy.|0.38%|
+|A cozy and festive holiday scene with a fireplace, stockings, and a Christmas tree decorated with lights and ornaments.|0.38%|
+|A romantic and dreamy scene of a couple in a hot air balloon, floating over a picturesque countryside.|0.38%|
+|A dreamy and surreal cloudscape scene with fluffy white clouds, a rainbow, and a hot air balloon floating in the distance.|0.0%|
+|A snowy wonderland with towering ice sculptures, sleighs, and a castle made of ice.|0.0%|
