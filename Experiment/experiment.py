@@ -283,10 +283,11 @@ def verify_class_balance(y_train, y_test, class_counts):
     else:
         print("The train and test sets number of samples per class yields a good class balance across sets.")
 
-def get_dataset_splits(X, y):
+def get_dataset_splits(X, y, sample_ids):
 
     if config.balance_classes_across_sets:
         X_train, X_test, y_train, y_test = [], [], [], []
+        sample_ids_train, sample_ids_test = [], []
 
         # NOTE: we assume that the classes are ordered in the same way in the X and y arrays AND 
         # that the number of samples per artist/class before split is the same for all the artists/classes
@@ -302,9 +303,11 @@ def get_dataset_splits(X, y):
             k = class_index * class_counts
             X_train.extend(X[k:k + n_train])
             y_train.extend(y[k:k + n_train])
+            sample_ids_train.extend(sample_ids[k:k + n_train])
 
             X_test.extend(X[k + n_train:k + n_train + n_test])
             y_test.extend(y[k + n_train:k + n_train + n_test])
+            sample_ids_test.extend(sample_ids[k + n_train:k + n_train + n_test])
 
         # map to numpy arrays since we X_train/X_test is a Python list
         X_train = list(map(np.asarray, X_train))
@@ -315,16 +318,21 @@ def get_dataset_splits(X, y):
         y_train = np.asarray(y_train)
         y_test = np.asarray(y_test)
 
+        sample_ids_train = np.asarray(sample_ids_train)
+        sample_ids_test = np.asarray(sample_ids_test)
+
         if config.rand_shuffle_data:
             # randomly shuffle the numpy arrays X_train and y_train in the same way
             indices_train = np.random.permutation(len(X_train)) # generate a random permutation of indices
             X_train = X_train[indices_train]
             y_train = y_train[indices_train]
+            sample_ids_train = sample_ids_train[indices_train]
 
             # randomly shuffle the numpy arrays X_test and y_test in the same way
             indices_test = np.random.permutation(len(X_test)) # generate a random permutation of indices
             X_test = X_test[indices_test]
             y_test = y_test[indices_test]
+            sample_ids_test = sample_ids_test[indices_test]
 
     else:
         # split the data randomly (and without class balancing across the splits/sets) into a training set and a test set
@@ -333,6 +341,9 @@ def get_dataset_splits(X, y):
                                                             test_size=1-config.train_test_ratio, 
                                                             shuffle=config.rand_shuffle_data, 
                                                             random_state=config.seed)
+
+        sample_ids_train = y_test.index.values
+        sample_ids_test = y_train.index.values
 
         # convert the train and test sets back to numpy arrays
         X_train = np.asarray(X_train)
@@ -344,17 +355,19 @@ def get_dataset_splits(X, y):
         class_counts = y.value_counts()[0]  # get the number of samples per class (assuming same number for all classes!)
         verify_class_balance(y_train, y_test, class_counts)
 
-    return X_train, X_test, y_train, y_test
+    return X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test
 
 def prepare_data(input_data_pt, target_data_df):
 
-    # X = np.array(input_data_pt)
-    X = input_data_pt
+    X = np.asarray(input_data_pt)
+    
     target_data_df, artists_to_class_numbers, class_numbers_to_artists = artists_to_class_numbers_bimap(target_data_df)
 
     y = target_data_df['artist_class_number'].copy()
 
-    X_train, X_test, y_train, y_test = get_dataset_splits(X, y)
+    sample_ids = target_data_df['uid'].copy()
+
+    X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test = get_dataset_splits(X, y, sample_ids)
 
     print("Number of samples in X_train: ", len(X_train))
     print("Number of samples in y_train ", len(y_train))
@@ -367,7 +380,7 @@ def prepare_data(input_data_pt, target_data_df):
 
     dataset_splits = {'X_train': X_train, 'X_test': X_test, 'y_train': y_train, 'y_test': y_test}
 
-    return sample_size, dataset_splits, artists_to_class_numbers, class_numbers_to_artists
+    return sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists
 
 def create_dataloaders(dataset_splits):
 
@@ -676,7 +689,7 @@ def run_training(model, dataset_splits):
 
     return trained_model
 
-def run_evaluation(trained_pred_model, dataset_splits, class_numbers_to_artists):
+def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, class_numbers_to_artists):
 
     if config.pred_model_name in ['linear_nn', 'nn']:
         # create the dataloaders for NN model training
@@ -703,9 +716,9 @@ def run_evaluation(trained_pred_model, dataset_splits, class_numbers_to_artists)
         # save the artists ranking for the train set
         with open('./Experiment/Data/train_set_artists_ranking.csv', 'w', encoding="utf-8") as f:
             data_writer = csv.writer(f, delimiter="\t", lineterminator="\n")
-            data_writer.writerow(['pred_artist', 'artists_ranking'])
-            for pred_artist, sample_ranking in zip(pred_artists, rankings_train):
-                data_writer.writerow([pred_artist, ";".join(sample_ranking)])    
+            data_writer.writerow(['original_sample_id', 'pred_artist', 'artists_ranking'])
+            for sample_id_train, pred_artist, sample_ranking in zip(sample_ids_train, pred_artists, rankings_train):
+                data_writer.writerow([sample_id_train, pred_artist, ";".join(sample_ranking)])    
 
     # predict on test set
     print("Predict on test set...")
@@ -720,13 +733,13 @@ def run_evaluation(trained_pred_model, dataset_splits, class_numbers_to_artists)
         # save the artists ranking for the train set
         with open('./Experiment/Data/test_set_artists_ranking.csv', 'w', encoding="utf-8") as f:
             data_writer = csv.writer(f, delimiter="\t", lineterminator="\n")
-            data_writer.writerow(['pred_artist', 'artists_ranking'])
-            for pred_artist, sample_ranking in zip(pred_artists, rankings_test):
-                data_writer.writerow([pred_artist, ";".join(sample_ranking)])
+            data_writer.writerow(['original_sample_id','pred_artist', 'artists_ranking'])
+            for sample_id_test, pred_artist, sample_ranking in zip(sample_ids_test, pred_artists, rankings_test):
+                data_writer.writerow([sample_id_test, pred_artist, ";".join(sample_ranking)])
 
-    print("\n")  
+    print("\n")
 
-def run_experiment(dataset_splits, sample_size, nb_classes, class_numbers_to_artists):
+def run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists):
     if config.pred_model_name in ["logistic_regression", "xgboost", "nn", "linear_nn"]:
         
         # create the predictive model
@@ -737,7 +750,7 @@ def run_experiment(dataset_splits, sample_size, nb_classes, class_numbers_to_art
 
         if config.eval_mode:
             # evaluate the predictive model
-            run_evaluation(trained_pred_model, dataset_splits, class_numbers_to_artists)
+            run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, class_numbers_to_artists)
 
     else:
         print("The predictive model name is not valid. Please choose one of the following: logistic_regression, xgboost, nn, linear_nn")
@@ -798,7 +811,7 @@ if __name__ == '__main__':
     # print(f"Length of CLIP embedding of the {index} image/artwork (i.e., size of the embedding vector used as input to the predictive model): {len(input_data[index])}")
 
     # dataset_splits is a dict with the splitted dataset subsets: X_train, X_test, y_train, y_test
-    sample_size, dataset_splits, artists_to_class_numbers, class_numbers_to_artists = prepare_data(input_data_pt, target_data_df)
+    sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists = prepare_data(input_data_pt, target_data_df)
 
     print("A sample (i.e., image vector embedding) is of size (i.e., a sample has this many features): ", sample_size)
 
@@ -807,7 +820,7 @@ if __name__ == '__main__':
 
     # run the experiment
     print("Starting the experiment run...")
-    run_experiment(dataset_splits, sample_size, nb_classes, class_numbers_to_artists)
+    run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists)
 
     # close csv file as nothing more to write for now
     data_csv_file.close()
