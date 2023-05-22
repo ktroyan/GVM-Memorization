@@ -4,6 +4,9 @@ gvm_scraping_venv/
 *.zip
 
 *.csv
+!googleart_artists_filtered_for_paintings.csv
+!googleart_artists.csv
+
 !test_set_artists_ranking.csv
 !train_set_artists_ranking.csv
 
