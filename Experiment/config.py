@@ -53,6 +53,7 @@ class Configuration(object):
         command_line_parser.add_argument("--sd_version", type=float, default=1.5, help="Stable Diffusion version: 1.5 or 2.1")
         command_line_parser.add_argument("--clip_version", type=str, default="Laion2b", help="CLIP version: OpenAI or Laion2b")
         command_line_parser.add_argument("--image_source", type=str, default="gen", help="'real' if real images/artworks, 'gen' if generated images/artworks.")
+        command_line_parser.add_argument("--artist_category", type=str, default="historic", help="'historic' if historical artists, 'artstation' if artstation (i.e., online) artists.")
         
         # Setup
         command_line_parser.add_argument('--tag', default='', help='A custom tag for this experiment.')

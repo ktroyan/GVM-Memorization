@@ -75,13 +75,21 @@ def load_dataset(dataset_path):
 
     # load saved target/label data (and additional info) from csv file into pandas dataframe
     if image_source == "gen":
-        with open(f'{data_folder_path}{image_source}_images_{sd_version}.csv', 'rb') as f:
-            target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+        if config.artist_category == "historic":
+            with open(f'{data_folder_path}{image_source}_images_{sd_version}.csv', 'rb') as f:
+                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+        elif config.artist_category == "artstation":
+            with open(f'{data_folder_path}{image_source}_images_{config.artist_category}_{sd_version}.csv', 'rb') as f:
+                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
     elif image_source == "real":
-        with open(f'{data_folder_path}{image_source}_images.csv', 'rb') as f:
-            target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+        if config.artist_category == "historic":
+            with open(f'{data_folder_path}{image_source}_images.csv', 'rb') as f:
+                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+        elif config.artist_category == "artstation":
+            with open(f'{data_folder_path}{image_source}_images_{config.artist_category}_filtered.csv', 'rb') as f:
+                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
     else:
-        print("To load the saved data, the image source is not valid. Please choose one of the following: 'real' or 'gen'")
+        print("To load the saved data, the image source is not valid. Please choose one of the following: 'real' or 'gen', and 'historic' or 'artstation'.")
 
     return input_data_pt, target_data_df
 
@@ -774,20 +782,33 @@ if __name__ == '__main__':
     # define the data folder path
     data_folder_path = "./Experiment/Data/"
 
+    # TODO: create a dictionary to handle file names better. Change file naming convention too.
     # define the path to embeddings dataset
     if image_source == "gen":
         if clip_version == "openai":
-            dataset_file = f'sd_{sd_version}_{clip_version}_ViT-B-32.pt'
+            if config.artist_category == "historic":
+                dataset_file = f'sd_{sd_version}_{clip_version}_ViT-B-32.pt'
+            elif config.artist_category == "artstation":
+                dataset_file = f'{config.artist_category}_sd_{sd_version}_{clip_version}_ViT-B-32.pt'
         elif clip_version == "laion2b":
-            dataset_file = f'sd_{sd_version}_{clip_version}_s34b_b79k_ViT-B-32.pt'
+            if config.artist_category == "historic":
+                dataset_file = f'sd_{sd_version}_{clip_version}_s34b_b79k_ViT-B-32.pt'
+            elif config.artist_category == "artstation":
+                dataset_file = f'{config.artist_category}_sd_{sd_version}_{clip_version}_s34b_b79k_ViT-B-32.pt'
         else:
             print("The CLIP version is not valid. Please choose one of the following: 'OpenAI' or 'Laion2b'")
 
     elif image_source == "real":
         if clip_version == "openai":
-            dataset_file = f'{image_source}_{clip_version}_ViT-B-32.pt'
+            if config.artist_category == "historic":
+                dataset_file = f'{image_source}_images_{config.artist_category}_{clip_version}.pt'
+            elif config.artist_category == "artstation":
+                dataset_file = f'{image_source}_images_{config.artist_category}_filtered_{clip_version}_ViT-B-32.pt'
         elif clip_version == "laion2b":
-            dataset_file = f'{image_source}_{clip_version}_s34b_b79k_ViT-B-32.pt'
+            if config.artist_category == "historic":
+                dataset_file = f'{image_source}_images_{config.artist_category}_{clip_version}_s34b_b79k.pt'
+            elif config.artist_category == "artstation":
+                dataset_file = f'{image_source}_images_{config.artist_category}_filtered_{clip_version}_s34b_b79k_ViT-B-32.pt'
         else:
             print("The CLIP version is not valid. Please choose one of the following: 'OpenAI' or 'Laion2b'")
     else:
