@@ -53,26 +53,26 @@ __Ver2__
 ## Zero-shot learning on historic images
 
 Number of real images: 1181    
-Number of generated images: 3735 (249 artists x 15 images)
+Number of generated images: 7470 (249 artists x 30 images)
 
 ### On generated images
 |SD version|Image embedding|Top-1|Top-5|  
 |---|---|---|---|
-|2.1|openai|5.78|17.54|
-||laion2b|5.49|15.1|
-||laion400m|5.11|15.21|
-|1.5|openai|10.15|25.46|
-||laion2b|10.23|26.02|
-||laion400m|8.81|22.78|
+|2.1|openai|6.17|18.37|
+||laion2b|6.28|18.14|
+||laion400m|5.14|16.09|
+|1.5|openai|8.67|22.88|
+||laion2b|10.5|26.37|
+||laion400m|9.33|24.07|
 
 
 
 ### On real images
 |Image embedding|Top-1|Top-5|  
 |---|---|---|
-|openai|52.75|77.05|
-|laion2b|55.63|79.51|
-|laion400m|45.89|67.49|
+|openai|48.26|72.9|
+|laion2b|51.4|75.78|
+|laion400m|48.52|70.28|
 
 ## Zero-shot learning on ArtStation images
 
