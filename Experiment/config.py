@@ -51,7 +51,7 @@ class Configuration(object):
 
         # General
         command_line_parser.add_argument("--artist_category", type=str, default="historical", help="'historical' if historical artists, 'artstation' if artstation (i.e., online) artists.")
-        command_line_parser.add_argument("--image_source", type=str, default="gen", help="'real' if real images/artworks, 'gen' if generated images/artworks.")
+        command_line_parser.add_argument("--image_realm", type=str, default="gen", help="'real' if real images/artworks, 'gen' if generated images/artworks.")
         command_line_parser.add_argument("--sd_version", type=float, default=1.5, help="Stable Diffusion version: 1.5 or 2.1")
         command_line_parser.add_argument("--clip_version", type=str, default="Laion2b", help="CLIP version: OpenAI or Laion2b")
         
@@ -85,8 +85,7 @@ class Configuration(object):
         command_line_parser.add_argument("--verify_class_balance", action='store_true', default=False, help="Whether or not to verify if the classes are well balanced across the samples split in sets. See the variable balance_classes_across_sets")
         command_line_parser.add_argument("--input_data_path", type=str, default=None, help="Path to the predictive model input data (i.e, Pytorch Tensor) file (.pt).")
         command_line_parser.add_argument("--target_data_path", type=str, default=None, help="Path to the predictive model target data file (.csv).")
-        command_line_parser.add_argument("--train_gen_test_real", type=str, default=None, help="Path to the predictive model target data file (.csv).")
-        command_line_parser.add_argument("--train_real_test_gen", type=str, default=None, help="Path to the predictive model target data file (.csv).")
+        command_line_parser.add_argument("--train_test_diff_realm", action='store_true', default=False, help="Wheter or not to train and test on different realms (i.e., gen vs. real). E.g., training with the embeddings of the generated artworks and testing on the embeddings of the real artworks.")
 
         # Model
         command_line_parser.add_argument("--pred_model_name", type=str, default="nn", help="Name of the predictive model: logistic_regression, xgboost, linear_nn, nn.")

@@ -82,7 +82,37 @@ def load_dataset(input_data_path, target_data_path):
     with open(target_data_path, 'rb') as f:
         target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
 
-    return input_data_pt, target_data_df
+    # load the different realm dataset if the flag True
+    if config.train_test_diff_realm:
+        if config.image_realm == "gen":
+            diff_realm_input_data_path = input_data_path.replace(f"gen_sd_{config.sd_version}", "real")
+            diff_realm_target_data_path = target_data_path.replace(f"gen_sd_{config.sd_version}", "real")
+        elif config.image_realm == "real":
+            diff_realm_input_data_path = input_data_path.replace("real", f"gen_sd_{config.sd_version}")
+            diff_realm_target_data_path = target_data_path.replace("real", f"gen_sd_{config.sd_version}")
+
+        # load input data (i.e., image embeddings) from Tensor in .pt file
+        try:
+            diff_realm_input_data_pt = torch.load(diff_realm_input_data_path)  # load the .pt file as a Tensor containing the generated images embeddings
+            print(f"Different realm dataset loaded.")
+            print(f"The different realm dataset of generated images' embeddings contain {len(diff_realm_input_data_pt)} samples.")
+            
+            assert len(diff_realm_input_data_pt[0]) == len(input_data_pt[0])
+            print("The embedding size of the different realm datasets' samples is the same.")
+
+        except Exception as e:
+            print(f"Error when loading the different realm images' embeddings: {e}")
+            print("Are the embedding sizes of the different realm datasets' samples the same?")
+
+        # load saved target/label data (and additional info) from .csv file into pandas dataframe
+        with open(diff_realm_target_data_path, 'rb') as f:
+            diff_realm_target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
+
+    else:
+        diff_realm_input_data_pt = None
+        diff_realm_target_data_df = None
+
+    return input_data_pt, target_data_df, diff_realm_input_data_pt, diff_realm_target_data_df
 
 def set_header(results_path, data_writer, data_header):
     # write header of the csv file if there is no header yet
@@ -93,7 +123,7 @@ def set_header(results_path, data_writer, data_header):
         data_file_has_header = True
     return data_file_has_header
 
-def setup_wandb(model, LR, OPTIMIZER, CRITERION):
+def setup_wandb(model, lr, optimizer, criterion):
 
     if config.use_wandb:
 
@@ -102,11 +132,10 @@ def setup_wandb(model, LR, OPTIMIZER, CRITERION):
                         "model": config.pred_model_name,
                         "epochs": config.n_epochs,
                         # "batch_size": config.batch_size,  # uncomment if dataloaders are used
-                        "learning_rate": LR,
-                        "optimizer": OPTIMIZER,
-                        "criterion": CRITERION,
+                        "learning_rate": lr,
+                        "optimizer": optimizer,
+                        "criterion": criterion,
                         "device": C.DEVICE,
-                        "top-k": "k=" + str(config.topk),
                         "input_data_file": input_data_path,
                         "target_data_file": target_data_path
                         })
@@ -362,8 +391,13 @@ def get_dataset_splits(X, y, sample_ids):
 
     return X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test
 
-def prepare_data(input_data_pt, target_data_df):
+def prepare_data(input_data_pt, target_data_df, diff_realm_input_data=None, diff_realm_target_data=None):
 
+    # TODO: implement the experiment run for the case when the train data is from a different realm than the test data
+    
+    if config.train_test_diff_realm:
+        raise NotImplementedError("The case when the train data is from a different realm than the test data is not implemented yet!")
+    
     X = np.asarray(input_data_pt)
     
     target_data_df, artists_to_class_numbers, class_numbers_to_artists = artists_to_class_numbers_bimap(target_data_df)
@@ -737,8 +771,20 @@ def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_
         create_class_rankings(train_ranking_file_path, y_pred_train, sample_ids_train, class_ranking_indices_train, class_numbers_to_artists, probabilities_train)
 
     # predict on test set
-    print("Predict on test set...")
-    y_test, y_pred_test, accuracy_test, top_k_classes_dict_test, top_k_accuracy_dict_test, class_ranking_indices_test, probabilities_test = predict(trained_pred_model, dataset_splits['X_test'], dataset_splits['y_test'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+    if config.train_test_diff_realm:
+        print("Predict on test set of different realm...")
+        print("Trained on realm: ", config.image_realm)
+        if config.image_realm == "gen":
+            print("Testing on realm: ", "real")
+        elif config.image_realm == "real":
+            print("Testing on realm: ", "gen")
+
+        predict(trained_pred_model, dataset_splits['X_test'], dataset_splits['y_test'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+
+    else:
+        print("Predict on test set...")
+        y_test, y_pred_test, accuracy_test, top_k_classes_dict_test, top_k_accuracy_dict_test, class_ranking_indices_test, probabilities_test = predict(trained_pred_model, dataset_splits['X_test'], dataset_splits['y_test'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+
 
     if class_ranking_indices_test is not None:
         print("For test set, saving in file ranked artists for all samples.")
@@ -750,7 +796,7 @@ def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_
         print("Saving experiment setting and results in a file...")
 
         if config.multi_top_k:
-            results_writer.writerow([config.image_source.lower(),
+            results_writer.writerow([config.image_realm.lower(),
                                     config.artist_category,
                                     config.clip_version.lower(), 
                                     str(config.sd_version).replace('.', '_'),
@@ -763,7 +809,7 @@ def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_
                                     ])
                   
         else:
-            results_writer.writerow([config.image_source.lower(), 
+            results_writer.writerow([config.image_realm.lower(), 
                                     config.artist_category,
                                     config.clip_version.lower(), 
                                     str(config.sd_version).replace('.', '_'),
@@ -807,7 +853,7 @@ if __name__ == '__main__':
     # format the command line arguments given
     sd_version = str(config.sd_version).replace('.', '_')
     clip_version = config.clip_version.lower()
-    image_source = config.image_source.lower()
+    image_realm = config.image_realm.lower()
 
     data_folder_path = "./Experiment/Data/"
 
@@ -817,13 +863,13 @@ if __name__ == '__main__':
     elif config.artist_category == 'artstation':
         data_files_folder_path = data_folder_path + "artstation/"
 
-    if image_source == 'real':
-        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_{clip_version}_embeddings.pt'
-        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_artworks.csv'
+    if image_realm == 'real':
+        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_{clip_version}_embeddings.pt'
+        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_artworks.csv'
         config.sd_version = None
-    elif image_source == 'gen':
-        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_sd_{sd_version}_{clip_version}_embeddings.pt'
-        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_sd_{sd_version}_artworks.csv'
+    elif image_realm == 'gen':
+        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_sd_{sd_version}_{clip_version}_embeddings.pt'
+        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_sd_{sd_version}_artworks.csv'
 
     # open file and create writer to save the data
     results_path = f"{data_folder_path}experiments_results.csv"
@@ -833,16 +879,17 @@ if __name__ == '__main__':
     results_file_has_header = set_header(results_path, results_writer, results_header)
 
     # load the dataset
-    input_data_pt, target_data_df = load_dataset(input_data_path, target_data_path)
+    input_data_pt, target_data_df, diff_realm_input_data, diff_realm_target_data = load_dataset(input_data_path, target_data_path)
+    
+    # dataset_splits is a dict with the splitted dataset subsets: X_train, X_test, y_train, y_test
+    sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists = prepare_data(input_data_pt, target_data_df, diff_realm_input_data, diff_realm_target_data)
 
     # print the <index> image embedding from the dataset as a sanity check
     index = 0
     # print(f"CLIP embedding of the {index} image/artwork: {input_data[index]}")
     # print(f"Length of CLIP embedding of the {index} image/artwork (i.e., size of the embedding vector used as input to the predictive model): {len(input_data[index])}")
-
-    # dataset_splits is a dict with the splitted dataset subsets: X_train, X_test, y_train, y_test
-    sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists = prepare_data(input_data_pt, target_data_df)
-
+    
+    
     print("A sample (i.e., image vector embedding) is of size (i.e., a sample has this many features): ", sample_size)
 
     nb_classes = len(artists_to_class_numbers.keys())
