@@ -1,9 +1,6 @@
-realm	source	encoder	sd_version	pred_model	nb_classes	train_accuracy	top1	top3	top5
-gen	historical	laion2b	1_5	logistic_regression	249	100.0	9.236947447061539	18.340027332305908	25.568941235542297
-real	historical	laion2b	1_5	logistic_regression	249	99.7883597883598	46.61017060279846	60.16949415206909	64.83050584793091
-real	historical	openai	1_5	logistic_regression	249	99.7883597883598	44.06779706478119	60.593217611312866	67.37288236618042
-real	historical	openai	2_1	logistic_regression	249	99.7883597883598	44.06779706478119	60.593217611312866	67.37288236618042
-gen	historical	openai	2_1	logistic_regression	249	100.0	11.244980245828629	20.749665796756744	26.907631754875183
-gen	historical	laion2b	2_1	logistic_regression	249	100.0	11.11111119389534	22.35609143972397	29.718875885009766
-real	historical	laion2b	None	logistic_regression	249	99.7883597883598	46.61017060279846	60.16949415206909	64.83050584793091
-real	artstation	laion2b	None	logistic_regression	247	99.74905897114178	53.58126759529114	69.83470916748047	77.20385789871216
+train_realm	test_realm	source	encoder	sd_version	pred_model	nb_classes	train_accuracy	test_accuracy	top1	top3	top5	precision	recall	f1_score
+real	gen	historical	openai	1_5	logistic_regression	249	99.788	5.837	5.837	12.289	16.975	9.249	5.837	4.952
+gen	real	artstation	laion2b	2_1	logistic_regression	264	99.968	0.37	0.37	1.252	2.02	0.555	0.35	0.23
+gen	gen	artstation	laion2b	2_1	logistic_regression	264	99.968	1.389	1.389	3.914	5.177	0.688	1.389	0.791
+real	real	artstation	laion2b	2_1	logistic_regression	247	99.749	53.581	53.581	69.835	77.204	51.231	48.621	47.231
+real	real	historical	laion2b	2_1	logistic_regression	249	99.788	46.61	46.61	60.169	64.831	36.297	45.188	38.912

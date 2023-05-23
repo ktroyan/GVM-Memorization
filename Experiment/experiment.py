@@ -22,7 +22,7 @@ import random
 import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, mean_absolute_error, mean_squared_error
+from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_curve, precision_score, recall_score, f1_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
 from sklearn.model_selection import StratifiedKFold
 from xgboost import XGBClassifier
@@ -317,73 +317,92 @@ def verify_class_balance(y_train, y_test, class_counts):
     else:
         print("The train and test sets number of samples per class yields a good class balance across sets.")
 
+def balance_classes(X, y, sample_ids):
+    X_train, X_test, y_train, y_test = [], [], [], []
+    sample_ids_train, sample_ids_test = [], []
+
+    # NOTE: we assume that the classes are ordered in the same way in the X and y arrays AND 
+    # that the number of samples per artist/class before split is the same for all the artists/classes
+    # TODO: implement for any number of samples per class in the original/complete dataset. Hence modify class_counts everywhere in this function.
+
+    class_counts = y.value_counts()[0]  # get the number of samples per class (assuming same number for all classes!)
+    print("Number of samples per class (assuming same number for all classes!): ", class_counts)
+    n_train = int(class_counts * config.train_test_ratio)
+    n_test = class_counts - n_train
+    nb_classes = y.unique().size
+
+    for class_index in range(nb_classes):
+        k = class_index * class_counts
+        X_train.extend(X[k:k + n_train])
+        y_train.extend(y[k:k + n_train])
+        sample_ids_train.extend(sample_ids[k:k + n_train])
+
+        X_test.extend(X[k + n_train:k + n_train + n_test])
+        y_test.extend(y[k + n_train:k + n_train + n_test])
+        sample_ids_test.extend(sample_ids[k + n_train:k + n_train + n_test])
+
+    # map to numpy arrays since X_train/X_test is a Python list of Torch Tensors
+    X_train = list(map(np.asarray, X_train))
+    X_test = list(map(np.asarray, X_test))
+
+    X_train = np.asarray(X_train)
+    X_test = np.asarray(X_test)
+    y_train = np.asarray(y_train)
+    y_test = np.asarray(y_test)
+
+    sample_ids_train = np.asarray(sample_ids_train)
+    sample_ids_test = np.asarray(sample_ids_test)
+
+    return X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test
+
+def rand_shuffle_balanced_classes(X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test):
+
+    # randomly shuffle the numpy arrays X_train and y_train in the same way
+    indices_train = np.random.permutation(len(X_train)) # generate a random permutation of indices
+    X_train = X_train[indices_train]
+    y_train = y_train[indices_train]
+    sample_ids_train = sample_ids_train[indices_train]
+
+    # randomly shuffle the numpy arrays X_test and y_test in the same way
+    indices_test = np.random.permutation(len(X_test)) # generate a random permutation of indices
+    X_test = X_test[indices_test]
+    y_test = y_test[indices_test]
+    sample_ids_test = sample_ids_test[indices_test]
+
+    return X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test
+
+def rand_shuffle(X, y):
+
+    # split the data randomly (and without class balancing across the splits/sets) into a training set and a test set
+    X_train, X_test, y_train, y_test = train_test_split(X, y, 
+                                                        train_size=config.train_test_ratio, 
+                                                        test_size=1-config.train_test_ratio, 
+                                                        shuffle=config.rand_shuffle_data, 
+                                                        random_state=config.seed)
+
+    sample_ids_train = y_test.index.values
+    sample_ids_test = y_train.index.values
+
+    # convert the train and test sets back to numpy arrays
+    X_train = np.asarray(X_train)
+    X_test = np.asarray(X_test)
+    y_train = np.asarray(y_train)
+    y_test = np.asarray(y_test)
+
+    return X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test
+
 def get_dataset_splits(X, y, sample_ids):
 
     if config.balance_classes_across_sets:
-        X_train, X_test, y_train, y_test = [], [], [], []
-        sample_ids_train, sample_ids_test = [], []
-
-        # NOTE: we assume that the classes are ordered in the same way in the X and y arrays AND 
-        # that the number of samples per artist/class before split is the same for all the artists/classes
-        # TODO: implement for any number of samples per class in the original/complete dataset. Hence modify class_counts everywhere in this function.
-
-        class_counts = y.value_counts()[0]  # get the number of samples per class (assuming same number for all classes!)
-        print("Number of samples per class (assuming same number for all classes!): ", class_counts)
-        n_train = int(class_counts * config.train_test_ratio)
-        n_test = class_counts - n_train
-        nb_classes = y.unique().size
-
-        for class_index in range(nb_classes):
-            k = class_index * class_counts
-            X_train.extend(X[k:k + n_train])
-            y_train.extend(y[k:k + n_train])
-            sample_ids_train.extend(sample_ids[k:k + n_train])
-
-            X_test.extend(X[k + n_train:k + n_train + n_test])
-            y_test.extend(y[k + n_train:k + n_train + n_test])
-            sample_ids_test.extend(sample_ids[k + n_train:k + n_train + n_test])
-
-        # map to numpy arrays since X_train/X_test is a Python list of Torch Tensors
-        X_train = list(map(np.asarray, X_train))
-        X_test = list(map(np.asarray, X_test))
-
-        X_train = np.asarray(X_train)
-        X_test = np.asarray(X_test)
-        y_train = np.asarray(y_train)
-        y_test = np.asarray(y_test)
-
-        sample_ids_train = np.asarray(sample_ids_train)
-        sample_ids_test = np.asarray(sample_ids_test)
+        X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test = balance_classes(X, y, sample_ids)
 
         if config.rand_shuffle_data:
-            # randomly shuffle the numpy arrays X_train and y_train in the same way
-            indices_train = np.random.permutation(len(X_train)) # generate a random permutation of indices
-            X_train = X_train[indices_train]
-            y_train = y_train[indices_train]
-            sample_ids_train = sample_ids_train[indices_train]
 
-            # randomly shuffle the numpy arrays X_test and y_test in the same way
-            indices_test = np.random.permutation(len(X_test)) # generate a random permutation of indices
-            X_test = X_test[indices_test]
-            y_test = y_test[indices_test]
-            sample_ids_test = sample_ids_test[indices_test]
+            X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test = rand_shuffle_balanced_classes(X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test)
 
     else:
-        # split the data randomly (and without class balancing across the splits/sets) into a training set and a test set
-        X_train, X_test, y_train, y_test = train_test_split(X, y, 
-                                                            train_size=config.train_test_ratio, 
-                                                            test_size=1-config.train_test_ratio, 
-                                                            shuffle=config.rand_shuffle_data, 
-                                                            random_state=config.seed)
-
-        sample_ids_train = y_test.index.values
-        sample_ids_test = y_train.index.values
-
-        # convert the train and test sets back to numpy arrays
-        X_train = np.asarray(X_train)
-        X_test = np.asarray(X_test)
-        y_train = np.asarray(y_train)
-        y_test = np.asarray(y_test)
+        if config.rand_shuffle_data:
+            X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test = rand_shuffle(X, y)
 
     if config.verify_class_balance:
         class_counts = y.value_counts()[0]  # get the number of samples per class (assuming same number for all classes!)
@@ -391,38 +410,46 @@ def get_dataset_splits(X, y, sample_ids):
 
     return X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test
 
-def prepare_data(input_data_pt, target_data_df, diff_realm_input_data=None, diff_realm_target_data=None):
-
-    # TODO: implement the experiment run for the case when the train data is from a different realm than the test data
+def prepare_data(input_data_pt, target_data_df, input_data_diff_realm=None, target_data_diff_realm=None):
     
     if config.train_test_diff_realm:
-        raise NotImplementedError("The case when the train data is from a different realm than the test data is not implemented yet!")
-    
+        X_diff_realm = np.asarray(input_data_diff_realm)
+        target_data_df_diff_realm, _, _ = artists_to_class_numbers_bimap(target_data_diff_realm)
+        y_diff_realm = np.asarray(target_data_df_diff_realm['artist_class_number'].copy())
+        sample_ids_diff_realm = target_data_diff_realm['uid'].copy()
+
+    else:
+        X_diff_realm = None
+        y_diff_realm = None
+        sample_ids_diff_realm = None
+
     X = np.asarray(input_data_pt)
-    
     target_data_df, artists_to_class_numbers, class_numbers_to_artists = artists_to_class_numbers_bimap(target_data_df)
-
     y = target_data_df['artist_class_number'].copy()
-
     sample_ids = target_data_df['uid'].copy()
 
     X_train, X_test, y_train, y_test, sample_ids_train, sample_ids_test = get_dataset_splits(X, y, sample_ids)
 
     print("Number of samples in X_train: ", len(X_train))
     print("Number of samples in y_train ", len(y_train))
-    print("Number of samples in X_test: ", len(X_test))
-    print("Number of samples in y_test: ", len(y_test))
 
-    sample_size = X_train[1].shape[0]   # len(X_train[0]); number of features of each sample (i.e., size of the embedding vector of each image)
+    if config.train_test_diff_realm:
+        print("Number of samples in X_diff_realm (used for testing): ", len(X_diff_realm))
+        print("Number of samples in y_diff_realm (used for testing)", len(y_diff_realm))
+
+    else:
+        print("Number of samples in X_test: ", len(X_test))
+        print("Number of samples in y_test: ", len(y_test))
+
+    sample_size = X_train[1].shape[0]   # number of features of each sample (i.e., size of the embedding vector of each image)
 
     print("Split the dataset into (X,y) pairs of train and test sets.")
 
     dataset_splits = {'X_train': X_train, 'X_test': X_test, 'y_train': y_train, 'y_test': y_test}
 
-    return sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists
+    return sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists, X_diff_realm, y_diff_realm, sample_ids_diff_realm
 
-def create_dataloaders(dataset_splits):
-
+def create_dataloaders(X_train, y_train, X_val=None, y_val=None):
     class ArtDataset(Dataset):
         def __init__(self, embeddings, labels):
             self.embeddings = embeddings
@@ -434,35 +461,58 @@ def create_dataloaders(dataset_splits):
         def __getitem__(self, idx):
             return self.embeddings[idx], self.labels[idx]
 
-    X_train = dataset_splits['X_train']
-    X_test = dataset_splits['X_test']
-    y_train = np.asarray(dataset_splits['y_train'])
-    y_test = np.asarray(dataset_splits['y_test'])
+    # Note: X_train, y_train, X_val, y_val should all be numpy
 
-    # Convert the data to PyTorch tensors
-    X_train, X_test = map(torch.LongTensor, (X_train, X_test))
-    y_train, y_test = map(torch.LongTensor, (y_train, y_test))
+    if X_train is not None and y_train is not None:
+        # Convert the data to PyTorch tensors
+        X_train = torch.LongTensor(X_train)
+        y_train = torch.LongTensor(y_train)
 
-    train_dataset = ArtDataset(X_train, y_train)
-    test_dataset = ArtDataset(X_test, y_test)
+        # Create a PyTorch Dataset
+        train_dataset = ArtDataset(X_train, y_train)
 
-    # Create a DataLoader
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
+        # Create a PyTorch DataLoader
+        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+        # print("Number of batches in train loader: ", len(train_loader))
 
-    # print("Number of batches in train loader: ", len(train_loader))
-    # print("Number of batches in test loader: ", len(test_loader))
+    else:
+        train_loader = None
 
-    dataloaders = {'train_loader': train_loader, 'test_loader': test_loader}
+    if X_val is not None and y_val is not None:
+        # Convert the data to PyTorch tensors
+        X_val = torch.LongTensor(X_val)
+        y_val = torch.LongTensor(y_val)
+
+        # Create a PyTorch Dataset
+        val_dataset = ArtDataset(X_train, y_train)
+
+        # Create a PyTorch DataLoader
+        val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
+        # print("Number of batches in val loader: ", len(val_loader))
+
+    else:
+        val_loader = None
+
+    dataloaders = {'train_loader': train_loader, 'val_loader': val_loader}
 
     return dataloaders
+
+def compute_metrics(y_true, y_pred):
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, average='macro', zero_division=0)
+    recall = recall_score(y_true, y_pred, average='macro', zero_division=0)
+    f1 = f1_score(y_true, y_pred, average='macro', zero_division=0)
+
+    metrics = {'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1}
+
+    return metrics
 
 def compute_topk_accuracy(sorted_probabilities, class_ranking_indices, gt_labels, k_list=[1], method = "method1"):
 
     top_k_accuracy_dict = {}
     top_k_classes_dict = {}
 
-    for k in k_list:
+    for index, k in enumerate(k_list):
 
         if method == "method1":
             top_k_classes = class_ranking_indices[:, :k]
@@ -483,21 +533,21 @@ def compute_topk_accuracy(sorted_probabilities, class_ranking_indices, gt_labels
 
     return top_k_accuracy_dict, top_k_classes_dict
 
-def predict(model, X, y, X_test=None, y_test=None, train_loader=None, test_loader=None):
+def predict(model, X, y, X_val=None, y_val=None, train_loader=None, val_loader=None):
 
     if config.pred_model_name == "logistic_regression":
         y_pred = model.predict(X)
-        accuracy = accuracy_score(y, y_pred)
-        # accuracy = model.score(X, y)    # same as accuracy_score(y, y_pred)
-        print(f"Accuracy: {accuracy*100:.3}%")
+        
+        metrics = compute_metrics(y, y_pred)
+        print(f"Accuracy: {metrics['accuracy']*100:.3}%")  # for an equivalent to predict and compute accuracy metric: model.score(X, y)
 
         probabilities = model.predict_proba(X)
         probabilities = torch.Tensor(probabilities)
 
     elif config.pred_model_name == "xgboost":
         y_pred = model.predict(X)
-        accuracy = accuracy_score(y, y_pred)
-        print(f"Accuracy: {accuracy*100:.3}%")
+        metrics = compute_metrics(y, y_pred)
+        print(f"Accuracy: {metrics['accuracy']*100:.3}%")
 
         probabilities = model.predict_proba(X)
         probabilities = torch.Tensor(probabilities)
@@ -507,9 +557,13 @@ def predict(model, X, y, X_test=None, y_test=None, train_loader=None, test_loade
             logits = model(torch.Tensor(np.asarray(X)).to(C.DEVICE))
             probabilities = F.log_softmax(logits.cpu(), dim=1)    # dim=1 to compute along the class dimension; TODO: why simple softmax not working well? 
             _, y_pred = torch.max(probabilities, 1)
-            accuracy = (torch.Tensor(np.asarray(y_pred)) == torch.Tensor(np.asarray(y))).float().mean()
-            accuracy = accuracy.item()
-            print(f"Accuracy: {accuracy*100:.3}%")
+
+            # accuracy = (torch.Tensor(np.asarray(y_pred)) == torch.Tensor(np.asarray(y))).float().mean()
+            # accuracy = accuracy.item()
+            # print(f"Accuracy: {accuracy*100:.3}%")
+
+            metrics = compute_metrics(torch.Tensor(np.asarray(y)), torch.Tensor(np.asarray(y_pred)))
+            print(f"Accuracy: {metrics['accuracy']*100:.3}%")
             
     else:
         raise ValueError(f"Before predicting, got an invalid model name: {config.pred_model_name}")
@@ -531,9 +585,9 @@ def predict(model, X, y, X_test=None, y_test=None, train_loader=None, test_loade
     y = torch.Tensor(np.asarray(y))
     y_pred = torch.Tensor(np.asarray(y_pred))
 
-    return y, y_pred, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_rankings_indices, sorted_probabilities
+    return y, y_pred, metrics, top_k_classes_dict, top_k_accuracy_dict, class_rankings_indices, sorted_probabilities
 
-def train(model, X_train, X_test, y_train, y_test, train_loader=None, test_loader=None, criterion=None, optimizer=None):
+def train(model, X_train, y_train, X_test, y_test, train_loader=None, val_loader=None, criterion=None, optimizer=None):
     
     print(f"Training the model {config.pred_model_name}...")
 
@@ -671,8 +725,8 @@ def train(model, X_train, X_test, y_train, y_test, train_loader=None, test_loade
 
             if (epoch+1) % config.print_at_n_epochs == 0:
                 print("Predicting on train set at epoch ", epoch+1, "...")
-                _, _, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, X_train, y_train, train_loader=None, test_loader=None)   # Sanity check: evaluate the model on the training set
-                wandb.log({f"Every {config.print_at_n_epochs} epochs train accuracy: ": accuracy*100})
+                _, _, metrics, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, X_train, y_train)   # Sanity check: evaluate the model on the training set
+                wandb.log({f"Every {config.print_at_n_epochs} epochs train accuracy: ": metrics['accuracy']*100})
                 for k in top_k_accuracy_dict.keys():
                     wandb.log({f"Every {config.print_at_n_epochs} epochs train TOP-{k} accuracy: ": top_k_accuracy_dict[k]*100})
         
@@ -681,19 +735,19 @@ def train(model, X_train, X_test, y_train, y_test, train_loader=None, test_loade
     
     print("\n")
     # print("Predicting on train set...")
-    # y, y_pred, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, pred_model_name, X_train, y_train, train_loader=None, test_loader=None, k=topk)   # Sanity check: evaluate the model on the training set
+    # y, y_pred, metrics top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, pred_model_name, X_train, y_train, val_loader=None, val_loader=None, k=topk)   # Sanity check: evaluate the model on the training set
     # print("Predicting on test set...")
-    # y, y_pred, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, pred_model_name, X_test, y_test, train_loader=None, test_loader=None, k=topk)    # Actual evaluation: evaluate the model on the test set
+    # y, y_pred, metrics, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, pred_model_name, X_test, y_test, val_loader=None, val_loader=None, k=topk)    # Actual evaluation: evaluate the model on the test set
 
     return model
 
 def run_training(model, dataset_splits):
 
     if config.pred_model_name in ['logistic_regression', 'xgboost']:
-        trained_model = train(model, dataset_splits['X_train'], dataset_splits['X_test'], dataset_splits['y_train'], dataset_splits['y_test'])
+        trained_model = train(model, dataset_splits['X_train'], dataset_splits['y_train'], dataset_splits['X_test'], dataset_splits['y_test'])
 
     elif config.pred_model_name == 'linear_nn':
-        dataloaders = create_dataloaders(dataset_splits)
+        dataloaders = create_dataloaders(dataset_splits['X_train'], dataset_splits['y_train'])
         
         nb_features = dataset_splits['X_train'].shape[1]  # length of the image embeddings
 
@@ -707,11 +761,11 @@ def run_training(model, dataset_splits):
         # setup WandB
         setup_wandb(model, learning_rate, optimizer, criterion)
 
-        trained_model = train(model, dataset_splits['X_train'], dataset_splits['X_test'], dataset_splits['y_train'], dataset_splits['y_test'], dataloaders['train_loader'], dataloaders['test_loader'], criterion, optimizer)
+        trained_model = train(model, dataset_splits['X_train'], dataset_splits['y_train'], dataset_splits['X_test'], dataset_splits['y_test'], dataloaders['train_loader'], dataloaders['val_loader'], criterion, optimizer)
 
 
     elif config.pred_model_name == 'nn':
-        dataloaders = create_dataloaders(dataset_splits)
+        dataloaders = create_dataloaders(dataset_splits['X_train'], dataset_splits['y_train'])
 
         nb_features = dataset_splits['X_train'].shape[1]  # length of the image embeddings
 
@@ -725,7 +779,7 @@ def run_training(model, dataset_splits):
         # setup WandB
         setup_wandb(model, learning_rate, optimizer, criterion)
 
-        trained_model = train(model, dataset_splits['X_train'], dataset_splits['X_test'], dataset_splits['y_train'], dataset_splits['y_test'], dataloaders['train_loader'], dataloaders['test_loader'], criterion, optimizer)
+        trained_model = train(model, dataset_splits['X_train'], dataset_splits['y_train'], dataset_splits['X_test'], dataset_splits['y_test'], dataloaders['train_loader'], dataloaders['val_loader'], criterion, optimizer)
     
     else:
         raise ValueError(f"Before starting training, got an invalid model name: {config.pred_model_name}")
@@ -748,23 +802,28 @@ def create_class_rankings(ranking_file_path, y_pred, sample_ids, class_ranking_i
     rankings = get_artists_ranking(class_ranking_indices, class_numbers_to_artists)
     save_artists_ranking(ranking_file_path, sample_ids, pred_artists, rankings, probabilities)
 
-def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, nb_classes, class_numbers_to_artists, results_writer):
+def get_rounded_score(score, digit_precision=3):
+    return round(score*100, digit_precision)
+
+def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, nb_classes, class_numbers_to_artists, X_diff_realm=None, y_diff_realm=None, sample_ids_diff_realm=None, results_writer=None):
 
     if config.pred_model_name in ['linear_nn', 'nn']:
-        dataloaders = create_dataloaders(dataset_splits)    # create the dataloaders for NN model training
+        dataloaders = create_dataloaders(dataset_splits['X_train'], dataset_splits['y_train'])    # create the dataloaders for NN model training
         train_loader = dataloaders['train_loader']
-        test_loader = dataloaders['test_loader']
+        val_loader = dataloaders['val_loader']
+        X_val = None
+        y_val = None
 
     elif config.pred_model_name in ['logistic_regression', 'xgboost']:
         train_loader = None
-        test_loader = None
+        val_loader = None
 
     else:
         raise ValueError(f"Before starting evaluation, got an invalid model name: {config.pred_model_name}")
     
     # predict on train set
     print("Predict on train set...")
-    y_train, y_pred_train, accuracy_train, top_k_classes_dict_train, top_k_accuracy_dict_train, class_ranking_indices_train, probabilities_train = predict(trained_pred_model, dataset_splits['X_train'], dataset_splits['y_train'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+    y_train, y_pred_train, metrics_train, top_k_classes_dict_train, top_k_accuracy_dict_train, class_ranking_indices_train, probabilities_train = predict(trained_pred_model, dataset_splits['X_train'], dataset_splits['y_train'], X_val=None, y_val=None, train_loader=train_loader, val_loader=val_loader)
 
     if class_ranking_indices_train is not None:
         train_ranking_file_path = './Experiment/Data/train_set_artists_ranking.csv'
@@ -774,17 +833,23 @@ def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_
     if config.train_test_diff_realm:
         print("Predict on test set of different realm...")
         print("Trained on realm: ", config.image_realm)
+        print("Testing on realm: ", "real" if config.image_realm == "gen" else "gen")
         if config.image_realm == "gen":
-            print("Testing on realm: ", "real")
-        elif config.image_realm == "real":
-            print("Testing on realm: ", "gen")
+            train_image_realm = "gen"
+            test_image_realm = "real"
+        else:
+            train_image_realm = "real"
+            test_image_realm = "gen"
 
-        predict(trained_pred_model, dataset_splits['X_test'], dataset_splits['y_test'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+        y_test, y_pred_test, metrics_test, top_k_classes_dict_test, top_k_accuracy_dict_test, class_ranking_indices_test, probabilities_test = predict(trained_pred_model, X_diff_realm, y_diff_realm)
+        sample_ids_test = sample_ids_diff_realm
 
     else:
         print("Predict on test set...")
-        y_test, y_pred_test, accuracy_test, top_k_classes_dict_test, top_k_accuracy_dict_test, class_ranking_indices_test, probabilities_test = predict(trained_pred_model, dataset_splits['X_test'], dataset_splits['y_test'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
-
+        y_test, y_pred_test, metrics_test, top_k_classes_dict_test, top_k_accuracy_dict_test, class_ranking_indices_test, probabilities_test = predict(trained_pred_model, dataset_splits['X_test'], dataset_splits['y_test'])
+        
+        train_image_realm = config.image_realm
+        test_image_realm = config.image_realm
 
     if class_ranking_indices_test is not None:
         print("For test set, saving in file ranked artists for all samples.")
@@ -796,34 +861,45 @@ def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_
         print("Saving experiment setting and results in a file...")
 
         if config.multi_top_k:
-            results_writer.writerow([config.image_realm.lower(),
+
+            results_writer.writerow([train_image_realm,
+                                    test_image_realm,
                                     config.artist_category,
                                     config.clip_version.lower(), 
                                     str(config.sd_version).replace('.', '_'),
                                     config.pred_model_name,
                                     str(nb_classes),
-                                    f'{str(accuracy_train*100):3}',
-                                    f"{str(top_k_accuracy_dict_test['1']*100):3}",
-                                    f"{str(top_k_accuracy_dict_test['3']*100):3}",
-                                    f"{str(top_k_accuracy_dict_test['5']*100):3}"
+                                    f"{str(get_rounded_score(metrics_train['accuracy']))}",
+                                    f"{str(get_rounded_score(metrics_test['accuracy']))}",
+                                    f"{str(get_rounded_score(top_k_accuracy_dict_test['1']))}",
+                                    f"{str(get_rounded_score(top_k_accuracy_dict_test['3']))}",
+                                    f"{str(get_rounded_score(top_k_accuracy_dict_test['5']))}",
+                                    f"{str(get_rounded_score(metrics_test['precision']))}",
+                                    f"{str(get_rounded_score(metrics_test['recall']))}",
+                                    f"{str(get_rounded_score(metrics_test['f1']))}",
                                     ])
                   
         else:
-            results_writer.writerow([config.image_realm.lower(), 
+            results_writer.writerow([train_image_realm,
+                                    test_image_realm,
                                     config.artist_category,
                                     config.clip_version.lower(), 
                                     str(config.sd_version).replace('.', '_'),
                                     config.pred_model_name,
                                     str(nb_classes),
-                                    f'{str(accuracy_train):3}',
-                                    f'{str(accuracy_test):3}',
+                                    f"{str(get_rounded_score(metrics_train['accuracy']))}",
+                                    f"{str(get_rounded_score(metrics_test['accuracy']))}",
                                     None,
-                                    None
+                                    None,
+                                    None,
+                                    f"{str(get_rounded_score(metrics_test['precision']))}",
+                                    f"{str(get_rounded_score(metrics_test['recall']))}",
+                                    f"{str(get_rounded_score(metrics_test['f1']))}",
                                     ])
     
     print("\n")
 
-def run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists, results_writer):
+def run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists, X_diff_realm=None, y_diff_realm=None, sample_ids_diff_realm=None, results_writer=None):
     if config.pred_model_name in ["logistic_regression", "xgboost", "nn", "linear_nn"]:
         
         # create the predictive model
@@ -834,7 +910,7 @@ def run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_siz
 
         if config.eval_mode:
             # evaluate the predictive model
-            run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, nb_classes, class_numbers_to_artists, results_writer)
+            run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, nb_classes, class_numbers_to_artists, X_diff_realm, y_diff_realm, sample_ids_diff_realm, results_writer)
 
     else:
         print("The predictive model name is not valid. Please choose one of the following: logistic_regression, xgboost, nn, linear_nn")
@@ -851,9 +927,9 @@ if __name__ == '__main__':
     seed_everything(config.seed)
 
     # format the command line arguments given
-    sd_version = str(config.sd_version).replace('.', '_')
-    clip_version = config.clip_version.lower()
-    image_realm = config.image_realm.lower()
+    config.sd_version = str(config.sd_version).replace('.', '_')
+    config.clip_version = config.clip_version.lower()
+    config.image_realm = config.image_realm.lower()
 
     data_folder_path = "./Experiment/Data/"
 
@@ -863,49 +939,53 @@ if __name__ == '__main__':
     elif config.artist_category == 'artstation':
         data_files_folder_path = data_folder_path + "artstation/"
 
-    if image_realm == 'real':
-        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_{clip_version}_embeddings.pt'
-        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_artworks.csv'
-        config.sd_version = None
-    elif image_realm == 'gen':
-        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_sd_{sd_version}_{clip_version}_embeddings.pt'
-        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_realm}_sd_{sd_version}_artworks.csv'
+    if config.image_realm == 'real':
+        input_data_path = f'{data_files_folder_path}{config.artist_category}_{config.image_realm}_{config.clip_version}_embeddings.pt'
+        target_data_path = f'{data_files_folder_path}{config.artist_category}_{config.image_realm}_artworks.csv'
 
-    # open file and create writer to save the data
-    results_path = f"{data_folder_path}experiments_results.csv"
-    results_csv_file = open(results_path, 'a', encoding="utf-8")
-    results_writer = csv.writer(results_csv_file, delimiter="\t", lineterminator="\n")
-    results_header = ['realm', 'source', 'encoder', 'sd_version', 'pred_model', 'nb_classes', 'train_accuracy', 'top1', 'top3', 'top5']
-    results_file_has_header = set_header(results_path, results_writer, results_header)
+    elif config.image_realm == 'gen':
+        input_data_path = f'{data_files_folder_path}{config.artist_category}_{config.image_realm}_sd_{config.sd_version}_{config.clip_version}_embeddings.pt'
+        target_data_path = f'{data_files_folder_path}{config.artist_category}_{config.image_realm}_sd_{config.sd_version}_artworks.csv'
+
+    if config.save_experiment_results:
+        # open file and create writer to save the data
+        results_path = f"{data_folder_path}experiments_results.csv"
+        results_csv_file = open(results_path, 'a', encoding="utf-8")
+        results_writer = csv.writer(results_csv_file, delimiter="\t", lineterminator="\n")
+        results_header = ['train_realm', 'test_realm', 'source', 'encoder', 'sd_version', 'pred_model', 'nb_classes', 'train_accuracy', 'test_accuracy', 'top1', 'top3', 'top5', 'precision', 'recall', 'f1_score']
+        results_file_has_header = set_header(results_path, results_writer, results_header)
+    else:
+        results_writer = None
 
     # load the dataset
     input_data_pt, target_data_df, diff_realm_input_data, diff_realm_target_data = load_dataset(input_data_path, target_data_path)
     
     # dataset_splits is a dict with the splitted dataset subsets: X_train, X_test, y_train, y_test
-    sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists = prepare_data(input_data_pt, target_data_df, diff_realm_input_data, diff_realm_target_data)
+    sample_size, dataset_splits, sample_ids_train, sample_ids_test, artists_to_class_numbers, class_numbers_to_artists, X_diff_realm, y_diff_realm, sample_ids_diff_realm = prepare_data(input_data_pt, target_data_df, diff_realm_input_data, diff_realm_target_data)
 
-    # print the <index> image embedding from the dataset as a sanity check
-    index = 0
-    # print(f"CLIP embedding of the {index} image/artwork: {input_data[index]}")
-    # print(f"Length of CLIP embedding of the {index} image/artwork (i.e., size of the embedding vector used as input to the predictive model): {len(input_data[index])}")
-    
-    
     print("A sample (i.e., image vector embedding) is of size (i.e., a sample has this many features): ", sample_size)
-
     nb_classes = len(artists_to_class_numbers.keys())
     print(f"We have a {nb_classes} classes classification problem.")  
 
+    if config.add_verbose:
+        # print the <index> image embedding from the dataset as a sanity check
+        index = 0
+        print(f"CLIP embedding of the {index} image/artwork: {input_data_pt[index]}")
+        print(f"Length of CLIP embedding of the {index} image/artwork (i.e., size of the embedding vector used as input to the predictive model): {len(input_data_pt[index])}")
+
     # run the experiment
     print("Starting the experiment run...")
-    run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists, results_writer)
+    run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists, X_diff_realm, y_diff_realm, sample_ids_diff_realm, results_writer)
 
-    # close csv file as nothing more to write for now
-    results_csv_file.close()
-    
-    # load saved data csv file into pandas dataframe
-    with open(results_path, 'r') as f:
-        results_df = pd.read_csv(f, delimiter="\t")
-    print(results_df.head())
+    if config.save_experiment_results:
+        # close csv file as nothing more to write for now
+        results_csv_file.close()
+        
+        # load saved data csv file into pandas dataframe
+        with open(results_path, 'r') as f:
+            results_df = pd.read_csv(f, delimiter="\t")
+        
+        print(results_df.head())
 
 
 

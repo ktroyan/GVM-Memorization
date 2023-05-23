@@ -67,7 +67,7 @@ class Configuration(object):
         command_line_parser.add_argument("--use_grid_search", action='store_true', default=False, help="Whether or not to perform a (random) Grid Search for HP optimization of the sklearn models.")
         command_line_parser.add_argument("--k_folds", type=int, default=5, help="Number of folds to have for the Cross-Validation (CV) of sklearn models. E.g.: 5")
         command_line_parser.add_argument("--use_tqdm", action='store_true', default=False, help="Whether or not to use tqdm bar during NN training.")
-        command_line_parser.add_argument("--add_verbose", action='store_true', default=False, help="Whether or not to have additional training logs printed in the terminal.")
+        command_line_parser.add_argument("--add_verbose", action='store_true', default=False, help="Whether or not to have additional training logs and some other additional logs printed in the terminal.")
         command_line_parser.add_argument("--save_experiment_results", action='store_true', default=False, help="Whether or not to save the experiment results (i.e., some of the config and the pred scores obtained.")
 
         # Data
