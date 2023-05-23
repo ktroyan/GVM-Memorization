@@ -11,6 +11,7 @@ gvm_scraping_venv/
 !train_set_artists_ranking.csv
 !train_set_artists_ranking_sorted.csv
 !test_set_artists_ranking_sorted.csv
+!experiments_results.csv
 
 *.pt
 

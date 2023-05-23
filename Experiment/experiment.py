@@ -63,41 +63,35 @@ def show_cuda_gpu_info():
     else:
         print("Cuda is not available.")
 
-def load_dataset(dataset_path):
+def load_dataset(input_data_path, target_data_path):
+
+    if config.input_data_path:
+        input_data_path = config.input_data_path
+    if config.target_data_path:
+        target_data_path = config.target_data_path
 
     # load input data (i.e., image embeddings) from Tensor in .pt file
     try:
-        input_data_pt = torch.load(dataset_path)  # load the .pt file as a Tensor containing the generated images embeddings
+        input_data_pt = torch.load(input_data_path)  # load the .pt file as a Tensor containing the generated images embeddings
         print(f"Dataset loaded.")
         print(f"Dataset of generated images' embeddings contain {len(input_data_pt)} samples.")
     except Exception as e:
         print(f"Error when loading the images' embeddings: {e}")
 
-    # load saved target/label data (and additional info) from csv file into pandas dataframe
-    if image_source == "gen":
-        if config.artist_category == "historic":
-            with open(f'{data_folder_path}{image_source}_images_{sd_version}.csv', 'rb') as f:
-                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
-        elif config.artist_category == "artstation":
-            with open(f'{data_folder_path}{image_source}_images_{config.artist_category}_{sd_version}.csv', 'rb') as f:
-                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
-    elif image_source == "real":
-        if config.artist_category == "historic":
-            with open(f'{data_folder_path}{image_source}_images.csv', 'rb') as f:
-                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
-        elif config.artist_category == "artstation":
-            with open(f'{data_folder_path}{image_source}_images_{config.artist_category}_filtered.csv', 'rb') as f:
-                target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
-    else:
-        print("To load the saved data, the image source is not valid. Please choose one of the following: 'real' or 'gen', and 'historic' or 'artstation'.")
+    # load saved target/label data (and additional info) from .csv file into pandas dataframe
+    with open(target_data_path, 'rb') as f:
+        target_data_df = pd.read_csv(f, delimiter=",", encoding="utf-8")
 
     return input_data_pt, target_data_df
 
-def set_header(data_writer, data_header):
+def set_header(results_path, data_writer, data_header):
     # write header of the csv file if there is no header yet
-    if os.stat(new_dataset_path).st_size == 0:
+    if os.stat(results_path).st_size == 0:
         data_file_has_header = False
         data_writer.writerow(data_header)
+    else:
+        data_file_has_header = True
+    return data_file_has_header
 
 def setup_wandb(model, LR, OPTIMIZER, CRITERION):
 
@@ -113,7 +107,8 @@ def setup_wandb(model, LR, OPTIMIZER, CRITERION):
                         "criterion": CRITERION,
                         "device": C.DEVICE,
                         "top-k": "k=" + str(config.topk),
-                        "dataset": dataset_file
+                        "input_data_file": input_data_path,
+                        "target_data_file": target_data_path
                         })
 
         # wandb.login()
@@ -247,6 +242,8 @@ def get_artists_ranking(ranked_artist_classes, class_numbers_to_artists):
     return [[class_numbers_to_artists[str(artist_class.item())] for artist_class in sample] for sample in ranked_artist_classes]
 
 def verify_class_balance(y_train, y_test, class_counts):
+    # TODO: not sure if this is a correct way to check the class balance, think of better implementation of this function
+
     print("Performing a class balance check on the data sets...\n")
     print("y_train: ", y_train)
     print("y_test: ", y_test)
@@ -317,7 +314,7 @@ def get_dataset_splits(X, y, sample_ids):
             y_test.extend(y[k + n_train:k + n_train + n_test])
             sample_ids_test.extend(sample_ids[k + n_train:k + n_train + n_test])
 
-        # map to numpy arrays since we X_train/X_test is a Python list
+        # map to numpy arrays since X_train/X_test is a Python list of Torch Tensors
         X_train = list(map(np.asarray, X_train))
         X_test = list(map(np.asarray, X_test))
 
@@ -426,26 +423,31 @@ def create_dataloaders(dataset_splits):
 
     return dataloaders
 
-def compute_topk_accuracy(probabilities, gt_labels, method = "method1"):
+def compute_topk_accuracy(sorted_probabilities, class_ranking_indices, gt_labels, k_list=[1], method = "method1"):
 
-    # get the ranking of classes/artists
-    sorted_classes, class_ranking_indices = torch.sort(probabilities, descending=True)  # if element at i is j, then class j is the top-i prediction
+    top_k_accuracy_dict = {}
+    top_k_classes_dict = {}
 
-    if method == "method1":
-        top_k_classes = class_ranking_indices[:, :config.topk]
-        correct_predictions = torch.sum(top_k_classes == torch.Tensor(gt_labels).unsqueeze(1), dim=1)   # creare boolean Tensor and sume (True is 1 and False is 0)
-        topk_accuracy = torch.mean(correct_predictions.float())
-    
-    elif method == "method2":
-        top_probs, top_k_classes = probabilities.cpu().topk(config.topk, dim=-1)
-        topk_correct = 0
-        for i in range(config.topk):
-            top_one_labels = top_k_classes[:, i]
-            correct = torch.sum(torch.Tensor(top_one_labels) == torch.Tensor(gt_labels))
-            topk_correct += correct
-        topk_accuracy = (topk_correct / gt_labels.shape[0]).item()
+    for k in k_list:
 
-    return topk_accuracy, top_k_classes, class_ranking_indices
+        if method == "method1":
+            top_k_classes = class_ranking_indices[:, :k]
+            correct_predictions = torch.sum(top_k_classes == torch.Tensor(gt_labels).unsqueeze(1), dim=1)   # creare boolean Tensor and sume (True is 1 and False is 0)
+            topk_accuracy = torch.mean(correct_predictions.float()).item()
+        
+        elif method == "method2":
+            top_probs, top_k_classes = sorted_probabilities.cpu().topk(k, dim=-1)
+            topk_correct = 0
+            for i in range(k):
+                top_one_labels = top_k_classes[:, i]
+                correct = torch.sum(torch.Tensor(top_one_labels) == torch.Tensor(gt_labels))
+                topk_correct += correct
+            topk_accuracy = (topk_correct / gt_labels.shape[0]).item()
+        
+        top_k_accuracy_dict[str(k)] = topk_accuracy
+        top_k_classes_dict[str(k)] = top_k_classes
+
+    return top_k_accuracy_dict, top_k_classes_dict
 
 def predict(model, X, y, X_test=None, y_test=None, train_loader=None, test_loader=None):
 
@@ -469,7 +471,7 @@ def predict(model, X, y, X_test=None, y_test=None, train_loader=None, test_loade
     elif config.pred_model_name in ["linear_nn", "nn"]:
         with torch.no_grad():
             logits = model(torch.Tensor(np.asarray(X)).to(C.DEVICE))
-            probabilities = F.log_softmax(logits.cpu(), dim=1)    # dim=1 to compute along the class dimension; TODO: softmax or log_softmax? 
+            probabilities = F.log_softmax(logits.cpu(), dim=1)    # dim=1 to compute along the class dimension; TODO: why simple softmax not working well? 
             _, y_pred = torch.max(probabilities, 1)
             accuracy = (torch.Tensor(np.asarray(y_pred)) == torch.Tensor(np.asarray(y))).float().mean()
             accuracy = accuracy.item()
@@ -478,14 +480,24 @@ def predict(model, X, y, X_test=None, y_test=None, train_loader=None, test_loade
     else:
         raise ValueError(f"Before predicting, got an invalid model name: {config.pred_model_name}")
 
-    # Get the top-k predicted classes and compute top-k accuracy
-    topk_accuracy, top_k_pred_classes, class_ranking_indices = compute_topk_accuracy(probabilities, y)
-    print(f"Top {config.topk} accuracy is {topk_accuracy*100:.3}%")
+    if config.multi_top_k:
+        k_list = [1, 3, 5]
+    else:
+        k_list = [config.topk]
+
+    # sort the predictions probabilities in descending order; get the ranking indices of classes/artists
+    sorted_probabilities, class_rankings_indices = torch.sort(probabilities, descending=True)  # if element at i is j, then class j is the top-i prediction
+
+    # get the top-k predicted classes and compute top-k accuracy
+    top_k_accuracy_dict, top_k_classes_dict = compute_topk_accuracy(sorted_probabilities, class_rankings_indices, y, k_list)
+    
+    for k in k_list:
+        print(f"Top {k} accuracy is {top_k_accuracy_dict[str(k)]*100:.3}%")
         
     y = torch.Tensor(np.asarray(y))
     y_pred = torch.Tensor(np.asarray(y_pred))
 
-    return y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices
+    return y, y_pred, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_rankings_indices, sorted_probabilities
 
 def train(model, X_train, X_test, y_train, y_test, train_loader=None, test_loader=None, criterion=None, optimizer=None):
     
@@ -605,7 +617,7 @@ def train(model, X_train, X_test, y_train, y_test, train_loader=None, test_loade
                 # Forward pass
                 logits = model(X.float())
 
-                probabilities = F.log_softmax(logits, dim=1)    # TODO: softmax or log_softmax?
+                probabilities = F.log_softmax(logits, dim=1)    # TODO: why simple softmax not working well?
 
                 # Compute the loss
                 loss = criterion(probabilities, y)     # no need to apply softmax if criterion is PyTorch CrossEntropyLoss()
@@ -625,40 +637,31 @@ def train(model, X_train, X_test, y_train, y_test, train_loader=None, test_loade
 
             if (epoch+1) % config.print_at_n_epochs == 0:
                 print("Predicting on train set at epoch ", epoch+1, "...")
-                _, _, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, X_train, y_train, train_loader=None, test_loader=None)   # Sanity check: evaluate the model on the training set
+                _, _, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, X_train, y_train, train_loader=None, test_loader=None)   # Sanity check: evaluate the model on the training set
                 wandb.log({f"Every {config.print_at_n_epochs} epochs train accuracy: ": accuracy*100})
-                wandb.log({f"Every {config.print_at_n_epochs} epochs train TOP-{config.topk} accuracy: ": topk_accuracy*100})
+                for k in top_k_accuracy_dict.keys():
+                    wandb.log({f"Every {config.print_at_n_epochs} epochs train TOP-{k} accuracy: ": top_k_accuracy_dict[k]*100})
         
     else:
         raise ValueError(f"Before training, got an invalid model name: {config.pred_model_name}")
     
     print("\n")
     # print("Predicting on train set...")
-    # y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, pred_model_name, X_train, y_train, train_loader=None, test_loader=None, k=topk)   # Sanity check: evaluate the model on the training set
+    # y, y_pred, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, pred_model_name, X_train, y_train, train_loader=None, test_loader=None, k=topk)   # Sanity check: evaluate the model on the training set
     # print("Predicting on test set...")
-    # y, y_pred, accuracy, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(model, pred_model_name, X_test, y_test, train_loader=None, test_loader=None, k=topk)    # Actual evaluation: evaluate the model on the test set
+    # y, y_pred, accuracy, top_k_classes_dict, top_k_accuracy_dict, class_ranking_indices, probabilities = predict(model, pred_model_name, X_test, y_test, train_loader=None, test_loader=None, k=topk)    # Actual evaluation: evaluate the model on the test set
 
     return model
 
 def run_training(model, dataset_splits):
 
-    X_train = dataset_splits['X_train']
-    X_test = dataset_splits['X_test']
-    y_train = dataset_splits['y_train']
-    y_test = dataset_splits['y_test']
-
-    if config.pred_model_name == 'logistic_regression':
-        trained_model = train(model, X_train, X_test, y_train, y_test)
-
-    elif config.pred_model_name == 'xgboost':
-        trained_model = train(model, X_train, X_test, y_train, y_test)
+    if config.pred_model_name in ['logistic_regression', 'xgboost']:
+        trained_model = train(model, dataset_splits['X_train'], dataset_splits['X_test'], dataset_splits['y_train'], dataset_splits['y_test'])
 
     elif config.pred_model_name == 'linear_nn':
         dataloaders = create_dataloaders(dataset_splits)
-        train_loader = dataloaders['train_loader']
-        test_loader = dataloaders['test_loader']
         
-        nb_features = X_train.shape[1]  # length of the image embeddings
+        nb_features = dataset_splits['X_train'].shape[1]  # length of the image embeddings
 
         learning_rate = 0.1 # use 0.1 for SGD and 0.0001 for Adam
 
@@ -670,15 +673,13 @@ def run_training(model, dataset_splits):
         # setup WandB
         setup_wandb(model, learning_rate, optimizer, criterion)
 
-        trained_model = train(model, X_train, X_test, y_train, y_test, train_loader, test_loader, criterion, optimizer)
+        trained_model = train(model, dataset_splits['X_train'], dataset_splits['X_test'], dataset_splits['y_train'], dataset_splits['y_test'], dataloaders['train_loader'], dataloaders['test_loader'], criterion, optimizer)
 
 
     elif config.pred_model_name == 'nn':
         dataloaders = create_dataloaders(dataset_splits)
-        train_loader = dataloaders['train_loader']
-        test_loader = dataloaders['test_loader']
 
-        nb_features = X_train.shape[1]  # length of the image embeddings
+        nb_features = dataset_splits['X_train'].shape[1]  # length of the image embeddings
 
         learning_rate = 0.1 # use 0.1 for SGD and 0.0001 for Adam
 
@@ -690,64 +691,93 @@ def run_training(model, dataset_splits):
         # setup WandB
         setup_wandb(model, learning_rate, optimizer, criterion)
 
-        trained_model = train(model, X_train, X_test, y_train, y_test, train_loader, test_loader, criterion, optimizer)
+        trained_model = train(model, dataset_splits['X_train'], dataset_splits['X_test'], dataset_splits['y_train'], dataset_splits['y_test'], dataloaders['train_loader'], dataloaders['test_loader'], criterion, optimizer)
     
     else:
         raise ValueError(f"Before starting training, got an invalid model name: {config.pred_model_name}")
 
     return trained_model
 
-def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, class_numbers_to_artists):
+def save_artists_ranking(file_path, sample_ids, pred_artists, rankings, probabilities):
+
+    # create list of list of strings; given 'probabilities' a Tensor of samples, convert the probabilities for artists within the samples to strings
+    probabilities = [[str(prob.item()) for prob in sample_probs] for sample_probs in probabilities]
+
+    with open(file_path, 'w', encoding="utf-8") as f:
+        data_writer = csv.writer(f, delimiter="\t", lineterminator="\n")
+        data_writer.writerow(['original_sample_id', 'pred_artist', 'artists_ranking', 'artists_probabilities'])
+        for sample_id, pred_artist, artists_ranking, artists_prob in zip(sample_ids, pred_artists, rankings, probabilities):
+            data_writer.writerow([sample_id, pred_artist, ";".join(artists_ranking), ";".join(artists_prob)])  
+
+def create_class_rankings(ranking_file_path, y_pred, sample_ids, class_ranking_indices, class_numbers_to_artists, probabilities):
+    pred_artists = get_artists_from_class_numbers(y_pred, class_numbers_to_artists)   # convert class numbers predictions to explicit artist classes (i.e., names of the artists)
+    rankings = get_artists_ranking(class_ranking_indices, class_numbers_to_artists)
+    save_artists_ranking(ranking_file_path, sample_ids, pred_artists, rankings, probabilities)
+
+def run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, nb_classes, class_numbers_to_artists, results_writer):
 
     if config.pred_model_name in ['linear_nn', 'nn']:
-        # create the dataloaders for NN model training
-        dataloaders = create_dataloaders(dataset_splits)
+        dataloaders = create_dataloaders(dataset_splits)    # create the dataloaders for NN model training
         train_loader = dataloaders['train_loader']
         test_loader = dataloaders['test_loader']
+
     elif config.pred_model_name in ['logistic_regression', 'xgboost']:
         train_loader = None
         test_loader = None
+
     else:
         raise ValueError(f"Before starting evaluation, got an invalid model name: {config.pred_model_name}")
     
     # predict on train set
     print("Predict on train set...")
-    y_train, y_pred_train, accuracy_train, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(trained_pred_model, np.asarray(dataset_splits['X_train']), np.asarray(dataset_splits['y_train']), X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
+    y_train, y_pred_train, accuracy_train, top_k_classes_dict_train, top_k_accuracy_dict_train, class_ranking_indices_train, probabilities_train = predict(trained_pred_model, dataset_splits['X_train'], dataset_splits['y_train'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
 
-    pred_artists = get_artists_from_class_numbers(y_pred_train, class_numbers_to_artists)   # convert class numbers predictions to explicit artist classes (i.e., names of the artists)
-    # print("Train predictions (with explicit artist classes): ", pred_artists)      
-
-    if class_ranking_indices is not None:
-        print("For train set, saving in file ranked artists for all samples. ")
-        rankings_train = get_artists_ranking(class_ranking_indices, class_numbers_to_artists)
-
-        # save the artists ranking for the train set
-        with open('./Experiment/Data/train_set_artists_ranking.csv', 'w', encoding="utf-8") as f:
-            data_writer = csv.writer(f, delimiter="\t", lineterminator="\n")
-            data_writer.writerow(['original_sample_id', 'pred_artist', 'artists_ranking'])
-            for sample_id_train, pred_artist, sample_ranking in zip(sample_ids_train, pred_artists, rankings_train):
-                data_writer.writerow([sample_id_train, pred_artist, ";".join(sample_ranking)])    
+    if class_ranking_indices_train is not None:
+        train_ranking_file_path = './Experiment/Data/train_set_artists_ranking.csv'
+        create_class_rankings(train_ranking_file_path, y_pred_train, sample_ids_train, class_ranking_indices_train, class_numbers_to_artists, probabilities_train)
 
     # predict on test set
     print("Predict on test set...")
-    y_test, y_pred_test, accuracy_test, top_k_pred_classes, topk_accuracy, class_ranking_indices = predict(trained_pred_model, np.asarray(dataset_splits['X_test']), np.asarray(dataset_splits['y_test']), X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
-    pred_artists = get_artists_from_class_numbers(y_pred_test, class_numbers_to_artists)   # convert class numbers predictions to explicit artist classes (i.e., names of the artists)
-    # print("Test predictions (with explicit artist classes): ", pred_artists)
+    y_test, y_pred_test, accuracy_test, top_k_classes_dict_test, top_k_accuracy_dict_test, class_ranking_indices_test, probabilities_test = predict(trained_pred_model, dataset_splits['X_test'], dataset_splits['y_test'], X_test=None, y_test=None, train_loader=train_loader, test_loader=test_loader)
 
-    if class_ranking_indices is not None:
-        print("For test set, saving in file ranked artists for all samples. ")
-        rankings_test = get_artists_ranking(class_ranking_indices, class_numbers_to_artists)
+    if class_ranking_indices_test is not None:
+        print("For test set, saving in file ranked artists for all samples.")
+        test_ranking_file_path = './Experiment/Data/test_set_artists_ranking.csv'
+        create_class_rankings(test_ranking_file_path, y_pred_test, sample_ids_test, class_ranking_indices_test, class_numbers_to_artists, probabilities_test)
 
-        # save the artists ranking for the train set
-        with open('./Experiment/Data/test_set_artists_ranking.csv', 'w', encoding="utf-8") as f:
-            data_writer = csv.writer(f, delimiter="\t", lineterminator="\n")
-            data_writer.writerow(['original_sample_id','pred_artist', 'artists_ranking'])
-            for sample_id_test, pred_artist, sample_ranking in zip(sample_ids_test, pred_artists, rankings_test):
-                data_writer.writerow([sample_id_test, pred_artist, ";".join(sample_ranking)])
+    # save results
+    if config.save_experiment_results:
+        print("Saving experiment setting and results in a file...")
 
+        if config.multi_top_k:
+            results_writer.writerow([config.image_source.lower(),
+                                    config.artist_category,
+                                    config.clip_version.lower(), 
+                                    str(config.sd_version).replace('.', '_'),
+                                    config.pred_model_name,
+                                    str(nb_classes),
+                                    f'{str(accuracy_train*100):3}',
+                                    f"{str(top_k_accuracy_dict_test['1']*100):3}",
+                                    f"{str(top_k_accuracy_dict_test['3']*100):3}",
+                                    f"{str(top_k_accuracy_dict_test['5']*100):3}"
+                                    ])
+                  
+        else:
+            results_writer.writerow([config.image_source.lower(), 
+                                    config.artist_category,
+                                    config.clip_version.lower(), 
+                                    str(config.sd_version).replace('.', '_'),
+                                    config.pred_model_name,
+                                    str(nb_classes),
+                                    f'{str(accuracy_train):3}',
+                                    f'{str(accuracy_test):3}',
+                                    None,
+                                    None
+                                    ])
+    
     print("\n")
 
-def run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists):
+def run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists, results_writer):
     if config.pred_model_name in ["logistic_regression", "xgboost", "nn", "linear_nn"]:
         
         # create the predictive model
@@ -758,7 +788,7 @@ def run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_siz
 
         if config.eval_mode:
             # evaluate the predictive model
-            run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, class_numbers_to_artists)
+            run_evaluation(trained_pred_model, dataset_splits, sample_ids_train, sample_ids_test, nb_classes, class_numbers_to_artists, results_writer)
 
     else:
         print("The predictive model name is not valid. Please choose one of the following: logistic_regression, xgboost, nn, linear_nn")
@@ -779,52 +809,31 @@ if __name__ == '__main__':
     clip_version = config.clip_version.lower()
     image_source = config.image_source.lower()
 
-    # define the data folder path
     data_folder_path = "./Experiment/Data/"
 
-    # TODO: create a dictionary to handle file names better. Change file naming convention too.
-    # define the path to embeddings dataset
-    if image_source == "gen":
-        if clip_version == "openai":
-            if config.artist_category == "historic":
-                dataset_file = f'sd_{sd_version}_{clip_version}_ViT-B-32.pt'
-            elif config.artist_category == "artstation":
-                dataset_file = f'{config.artist_category}_sd_{sd_version}_{clip_version}_ViT-B-32.pt'
-        elif clip_version == "laion2b":
-            if config.artist_category == "historic":
-                dataset_file = f'sd_{sd_version}_{clip_version}_s34b_b79k_ViT-B-32.pt'
-            elif config.artist_category == "artstation":
-                dataset_file = f'{config.artist_category}_sd_{sd_version}_{clip_version}_s34b_b79k_ViT-B-32.pt'
-        else:
-            print("The CLIP version is not valid. Please choose one of the following: 'OpenAI' or 'Laion2b'")
+    # define the data folder path
+    if config.artist_category == 'historical':
+        data_files_folder_path = data_folder_path + "historical/"
+    elif config.artist_category == 'artstation':
+        data_files_folder_path = data_folder_path + "artstation/"
 
-    elif image_source == "real":
-        if clip_version == "openai":
-            if config.artist_category == "historic":
-                dataset_file = f'{image_source}_images_{config.artist_category}_{clip_version}.pt'
-            elif config.artist_category == "artstation":
-                dataset_file = f'{image_source}_images_{config.artist_category}_filtered_{clip_version}_ViT-B-32.pt'
-        elif clip_version == "laion2b":
-            if config.artist_category == "historic":
-                dataset_file = f'{image_source}_images_{config.artist_category}_{clip_version}_s34b_b79k.pt'
-            elif config.artist_category == "artstation":
-                dataset_file = f'{image_source}_images_{config.artist_category}_filtered_{clip_version}_s34b_b79k_ViT-B-32.pt'
-        else:
-            print("The CLIP version is not valid. Please choose one of the following: 'OpenAI' or 'Laion2b'")
-    else:
-        print("To define the name of the dataset file, the image source is not valid. Please choose one of the following: 'real' or 'gen'")
-
-    model_input_data_path = f'{data_folder_path}{dataset_file}'
+    if image_source == 'real':
+        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_{clip_version}_embeddings.pt'
+        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_artworks.csv'
+        config.sd_version = None
+    elif image_source == 'gen':
+        input_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_sd_{sd_version}_{clip_version}_embeddings.pt'
+        target_data_path = f'{data_files_folder_path}{config.artist_category}_{image_source}_sd_{sd_version}_artworks.csv'
 
     # open file and create writer to save the data
-    new_dataset_path = f"{data_folder_path}new_data.csv"
-    data_csv_file = open(new_dataset_path, 'a', encoding="utf-8")
-    data_writer = csv.writer(data_csv_file, delimiter="\t", lineterminator="\n")
-    data_header = ['image_id', 'embedding', 'artist', 'sd_version', 'clip_version']
-    set_header(data_writer, data_header)
+    results_path = f"{data_folder_path}experiments_results.csv"
+    results_csv_file = open(results_path, 'a', encoding="utf-8")
+    results_writer = csv.writer(results_csv_file, delimiter="\t", lineterminator="\n")
+    results_header = ['realm', 'source', 'encoder', 'sd_version', 'pred_model', 'nb_classes', 'train_accuracy', 'top1', 'top3', 'top5']
+    results_file_has_header = set_header(results_path, results_writer, results_header)
 
     # load the dataset
-    input_data_pt, target_data_df = load_dataset(model_input_data_path)
+    input_data_pt, target_data_df = load_dataset(input_data_path, target_data_path)
 
     # print the <index> image embedding from the dataset as a sanity check
     index = 0
@@ -841,14 +850,15 @@ if __name__ == '__main__':
 
     # run the experiment
     print("Starting the experiment run...")
-    run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists)
+    run_experiment(dataset_splits, sample_ids_train, sample_ids_test, sample_size, nb_classes, class_numbers_to_artists, results_writer)
 
     # close csv file as nothing more to write for now
-    data_csv_file.close()
+    results_csv_file.close()
     
     # load saved data csv file into pandas dataframe
-    with open(new_dataset_path, 'r') as f:
-        new_dataset_df = pd.read_csv(f, delimiter="\t")
+    with open(results_path, 'r') as f:
+        results_df = pd.read_csv(f, delimiter="\t")
+    print(results_df.head())
 
 
 
