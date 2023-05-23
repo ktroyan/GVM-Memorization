@@ -15,7 +15,7 @@ import csv
 import requests
 from PIL import Image
 from io import StringIO, BytesIO
-
+import os
 import pandas as pd
 import urllib
 import base64
@@ -60,7 +60,7 @@ def start_scraping(driver, data_writer, art_df):
     art_df['image_path'] = ""
 
     # number of artworks to download per artist
-    nb_of_artworks_per_artist = 5
+    nb_of_artworks_per_artist = 20
 
     previous_artist = ""
     artist_count = 0
@@ -168,6 +168,10 @@ if __name__ == "__main__":
 
     # open google_art_data.csv file in pandas dataframe
     googleart_data_df = pd.read_csv(path_art_file, sep='\t', encoding='utf-8')
+    #filter artist that have less than 20 artworks
+    googleart_data_df = googleart_data_df.groupby('artist_name').filter(lambda x: len(x) > 20)
+    #print the number of artists
+    print("Number of artists: ", len(googleart_data_df.groupby('artist_name').groups.keys()))
 
     # open file and create writer to save the data
     art_csv_file = open(path_final_art_file, 'a', encoding="utf-8")
