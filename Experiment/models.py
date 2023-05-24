@@ -1,39 +1,13 @@
-import os
-import sys
-import argparse
-
 # PyTorch
 import torch
-from torch.utils.data import Dataset, DataLoader
-from torch import nn, optim
-from torch.nn import functional as F
 from torchsummary import summary
 
 # Data manipulation
-import csv
 import pandas as pd
 pd.set_option('display.max_columns', None)
 
-# Numerical operations without torch
-import numpy as np
-import random
-
-# Models, datasets, metrics
-import sklearn
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, precision_recall_curve, precision_score, recall_score, f1_score, mean_absolute_error, mean_squared_error
-from sklearn.model_selection import RandomizedSearchCV, GridSearchCV
-from sklearn.model_selection import StratifiedKFold
 from xgboost import XGBClassifier
-from scipy.stats import uniform
-
-# Visualization
-import matplotlib.pyplot as plt
-
-# Tracking of experiments
-from tqdm import trange, tqdm
-import wandb
 
 # Personal files dependencies
 from config import config, CONSTANTS as C
