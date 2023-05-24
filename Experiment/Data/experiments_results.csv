@@ -1,6 +1,37 @@
-train_realm	test_realm	source	encoder	sd_version	pred_model	nb_classes	train_accuracy	test_accuracy	top1	top3	top5	precision	recall	f1_score
-real	gen	historical	openai	1_5	logistic_regression	249	99.788	5.837	5.837	12.289	16.975	9.249	5.837	4.952
-gen	real	artstation	laion2b	2_1	logistic_regression	264	99.968	0.37	0.37	1.252	2.02	0.555	0.35	0.23
-gen	gen	artstation	laion2b	2_1	logistic_regression	264	99.968	1.389	1.389	3.914	5.177	0.688	1.389	0.791
-real	real	artstation	laion2b	2_1	logistic_regression	247	99.749	53.581	53.581	69.835	77.204	51.231	48.621	47.231
-real	real	historical	laion2b	2_1	logistic_regression	249	99.788	46.61	46.61	60.169	64.831	36.297	45.188	38.912
+train_realm	test_realm	source	encoder	sd_version	pred_model	nb_classes	random_guess_accuracy	train_accuracy	test_accuracy	top1	top3	top5	precision	recall	f1_score	explicit_train_input_path	explicit_test_input_path
+gen	gen	historical	openai	1_5	logistic_regression	249	0.402	99.598	20.348	20.348	33.601	40.964	21.437	20.348	19.831		
+gen	gen	artstation	openai	1_5	logistic_regression	264	0.379	98.954	1.484	1.484	4.453	6.613	0.972	1.484	0.933		
+gen	gen	historical	laion2b	1_5	logistic_regression	249	0.402	99.983	23.159	23.159	37.818	45.248	25.519	23.159	22.829		
+gen	gen	artstation	laion2b	1_5	logistic_regression	264	0.379	99.933	2.024	2.024	4.453	5.668	1.628	2.024	1.38		
+real	real	historical	openai	2_1	logistic_regression	249	0.402	99.788	44.068	44.068	60.593	67.373	32.497	42.678	35.551		
+real	real	artstation	openai	2_1	logistic_regression	247	0.405	99.731	51.584	51.584	68.457	75.275	47.947	47.16	45.264		
+gen	gen	historical	openai	2_1	logistic_regression	249	0.402	99.816	12.851	12.851	23.561	30.522	13.477	12.851	12.642		
+gen	gen	artstation	openai	2_1	logistic_regression	264	0.379	99.764	1.35	1.35	3.779	4.858	1.27	1.35	1.122		
+real	real	historical	laion2b	2_1	logistic_regression	249	0.402	99.788	46.61	46.61	60.169	64.831	36.297	45.188	38.912		
+real	real	artstation	laion2b	2_1	logistic_regression	247	0.405	99.749	53.581	53.581	69.835	77.135	51.231	48.621	47.231		
+gen	gen	historical	laion2b	2_1	logistic_regression	249	0.402	100.0	13.989	13.989	26.372	33.066	14.876	13.989	13.693		
+gen	gen	artstation	laion2b	2_1	logistic_regression	264	0.379	99.966	1.754	1.754	4.049	6.208	0.817	1.754	0.964
+real	gen	historical	openai	1_5	logistic_regression	249	0.402	99.788	6.024	6.024	12.932	17.59	11.182	6.024	5.259		
+real	gen	artstation	openai	1_5	logistic_regression	247	0.405	99.731	0.702	0.702	2.024	3.077	0.715	0.702	0.443		
+gen	real	historical	openai	1_5	logistic_regression	249	0.402	99.598	20.83	20.83	36.325	45.724	21.855	20.435	17.818		
+gen	real	artstation	openai	1_5	logistic_regression	264	0.379	98.954	2.077	2.077	4.395	6.016	1.516	2.001	0.944		
+real	gen	historical	laion2b	1_5	logistic_regression	249	0.402	99.788	6.104	6.104	13.36	18.273	11.051	6.104	5.122		
+real	gen	artstation	laion2b	1_5	logistic_regression	247	0.405	99.749	0.729	0.729	2.159	3.428	0.389	0.729	0.277		
+gen	real	historical	laion2b	1_5	logistic_regression	249	0.402	99.983	18.798	18.798	34.97	43.522	22.422	18.568	16.471		
+gen	real	artstation	laion2b	1_5	logistic_regression	264	0.379	99.933	2.304	2.304	4.437	6.13	1.196	2.255	1.105		
+real	gen	historical	openai	2_1	logistic_regression	249	0.402	99.788	3.534	3.534	8.313	11.74	7.195	3.534	2.93		
+real	gen	artstation	openai	2_1	logistic_regression	247	0.405	99.731	0.513	0.513	1.484	2.591	0.349	0.513	0.187		
+gen	real	historical	openai	2_1	logistic_regression	249	0.402	99.816	14.225	14.225	25.91	33.362	12.853	13.675	10.459		
+gen	real	artstation	openai	2_1	logistic_regression	264	0.379	99.764	1.18	1.18	2.603	3.954	0.706	1.15	0.586		
+real	gen	historical	laion2b	2_1	logistic_regression	249	0.402	99.788	3.708	3.708	9.05	12.851	8.974	3.708	3.123		
+real	gen	artstation	laion2b	2_1	logistic_regression	247	0.405	99.749	0.729	0.729	1.673	2.591	0.123	0.729	0.195		
+gen	real	historical	laion2b	2_1	logistic_regression	249	0.402	100.0	11.516	11.516	23.793	31.329	12.105	11.352	8.584		
+gen	real	artstation	laion2b	2_1	logistic_regression	264	0.379	99.966	1.124	1.124	2.788	3.883	1.547	1.152	0.746		
+merged	merged	historical	openai	1_5	logistic_regression	249	0.402	99.494	18.392	18.392	31.984	39.56	20.472	16.992	16.509		
+merged	merged	artstation	openai	1_5	logistic_regression	264	0.379	93.244	5.328	5.328	11.066	14.982	5.501	5.07	4.261		
+merged	merged	historical	laion2b	1_5	logistic_regression	249	0.402	99.957	17.814	17.814	31.579	39.503	18.228	16.99	15.508		
+merged	merged	artstation	laion2b	1_5	logistic_regression	264	0.379	97.143	5.328	5.328	11.157	14.162	6.167	4.58	4.239		
+merged	merged	historical	openai	2_1	logistic_regression	249	0.402	99.74	13.187	13.187	23.829	31.405	14.896	11.695	11.231		
+merged	merged	artstation	openai	2_1	logistic_regression	264	0.379	94.04	5.647	5.647	11.703	15.437	5.985	5.633	4.781		
+merged	merged	historical	laion2b	2_1	logistic_regression	249	0.402	99.971	12.146	12.146	23.655	31.29	13.308	10.536	10.498		
+merged	merged	artstation	laion2b	2_1	logistic_regression	264	0.379	98.162	5.282	5.282	10.519	14.208	5.818	5.617	4.533		

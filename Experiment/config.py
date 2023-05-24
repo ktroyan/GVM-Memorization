@@ -4,7 +4,6 @@ import os
 import pprint
 import torch
 
-
 class Constants(object):
     """
     This is a singleton (only a single instance of the class should exist in the program).
@@ -39,14 +38,13 @@ CONSTANTS = Constants()
 class Configuration(object):
     """Configuration parameters given via the commandline."""
 
-    def __init__(self, adict):
-        self.__dict__.update(adict)
+    def __init__(self, ):
+        pass
 
     def __str__(self):
         return pprint.pformat(vars(self), indent=4)
 
-    @staticmethod
-    def parse_cmd():
+    def parse_cmd(self,):
         command_line_parser = argparse.ArgumentParser()
 
         # General
@@ -86,6 +84,9 @@ class Configuration(object):
         command_line_parser.add_argument("--input_data_path", type=str, default=None, help="Path to the predictive model input data (i.e, Pytorch Tensor) file (.pt).")
         command_line_parser.add_argument("--target_data_path", type=str, default=None, help="Path to the predictive model target data file (.csv).")
         command_line_parser.add_argument("--train_test_diff_realm", action='store_true', default=False, help="Wheter or not to train and test on different realms (i.e., gen vs. real). E.g., training with the embeddings of the generated artworks and testing on the embeddings of the real artworks.")
+        command_line_parser.add_argument("--explicit_train_input_path", type=str, default=None, help="Path to the predictive model train input data file (.pt).")
+        command_line_parser.add_argument("--explicit_test_input_path", type=str, default=None, help="Path to the predictive model test input data file (.pt).")
+        command_line_parser.add_argument("--use_train_split_for_test", action='store_true', default=False, help="To force the usage of the resulting train-test split for the test set.")
 
         # Model
         command_line_parser.add_argument("--pred_model_name", type=str, default="nn", help="Name of the predictive model: logistic_regression, xgboost, linear_nn, nn.")
@@ -94,7 +95,7 @@ class Configuration(object):
         command_line_parser.add_argument('--print_at_n_epochs', type=int, default=50, help='Print metrics to command line every print_at_n_epochs epochs during NN training.')
 
         config = command_line_parser.parse_args()
-        return Configuration(vars(config))
+        self.__dict__.update(vars(config))
 
     @staticmethod
     def from_json(json_path):
@@ -108,3 +109,5 @@ class Configuration(object):
         with open(json_path, 'w') as f:
             s = json.dumps(vars(self), indent=2, sort_keys=True)
             f.write(s)
+
+config = Configuration()
