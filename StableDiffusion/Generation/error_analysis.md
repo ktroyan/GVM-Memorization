@@ -2,7 +2,7 @@
 
 ## Error analysis on generated images (historical)
 
-### SD 1.5 with laion2b_s34b_b79k + ViT-B-32
+### SD 1.5 with laion2b
 
 |Artist name|Accuracy|  
 |---|---|
@@ -32,7 +32,7 @@
 |A vibrant and colorful scene of a street market in Marrakech, Morocco with spices, textiles, and street performers.|0.0%|
 |A vibrant and colorful scene of a Carnaval parade in Rio de Janeiro with samba dancers, costumes, and floats.|0.0%|
 
-### SD 1.5 with laion400m_e32 + ViT-B-32
+### SD 1.5 with laion400m
 
 |Artist name|Accuracy|  
 |---|---|
@@ -63,7 +63,7 @@
 |A postcard-perfect Italian village with narrow streets, terracotta roofs, and a picturesque town square with a fountain.|1.2%|
 
 
-### SD 1.5 with openai + ViT-B-32
+### SD 1.5 with openai
 
 |Artist name|Accuracy|  
 |---|---|
@@ -93,7 +93,7 @@
 |A vibrant and colorful scene of a Carnaval parade in Rio de Janeiro with samba dancers, costumes, and floats.|0.8%|
 |A postcard-perfect Italian village with narrow streets, terracotta roofs, and a picturesque town square with a fountain.|0.4%|
 
-### SD 2.1 with laion2b_s34b_b79k + ViT-B-32
+### SD 2.1 with laion2b
 
 |Artist name|Accuracy|  
 |---|---|
@@ -122,7 +122,7 @@
 |A dynamic and exciting skateboard park with jumps, ramps, and half-pipes, surrounded by the city skyline.|0.4%|
 |A whimsical and enchanting scene of a fairy tale castle in the clouds, with a rainbow in the background.|0.4%|
 
-### SD 2.1 with laion400m_e32 + ViT-B-32
+### SD 2.1 with laion400m
 
 |Artist name|Accuracy|  
 |---|---|
@@ -152,7 +152,7 @@
 |A whimsical and enchanting scene of a fairy tale castle in the clouds, with a rainbow in the background.|0.8%|
 |A vibrant and colorful scene of a street market in Marrakech, Morocco with spices, textiles, and street performers.|0.0%|
 
-### SD 2.1 with openai + ViT-B-32
+### SD 2.1 with openai
 
 |Artist name|Accuracy|  
 |---|---|
@@ -184,7 +184,7 @@
 
 ## Error analysis on generated images (artstation)
 
-### SD 1.5 with openai + ViT-B-32
+### SD 1.5 with openai
 
 |Artist name|Accuracy|
 |---|---|
@@ -215,7 +215,7 @@
 |A romantic and dreamy scene of a couple in a hot air balloon, floating over a picturesque countryside.|0.0%|
 
 
-### SD 1.5 with laion2b_s34b_b79k + ViT-B-32
+### SD 1.5 with laion2b
 
 |Artist name|Accuracy|
 |---|---|
@@ -245,7 +245,7 @@
 |A dreamy and surreal cloudscape scene with fluffy white clouds, a rainbow, and a hot air balloon floating in the distance.|0.0%|
 |A snowy wonderland with towering ice sculptures, sleighs, and a castle made of ice.|0.0%|
 
-### SD 2.1 with openai + ViT-B-32
+### SD 2.1 with openai
 
 |Artist name|Accuracy|
 |---|---|
@@ -276,7 +276,7 @@
 |A peaceful and romantic scene of a couple sitting in a gondola, being serenaded on a moonlit canal in Venice, Italy.|0.0%|
 
 
-### SD 2.1 with laion2b_s34b_b79k + ViT-B-32
+### SD 2.1 with laion2b
 
 |Artist name|Accuracy|
 |---|---|
@@ -308,7 +308,7 @@
 
 ## Error analysis on real images (historical)
 
-### laion2b_s34b + ViT-B-32
+### laion2b
 
 |Artist name|Accuracy|
 |---|---|
@@ -324,7 +324,7 @@
 |Itō Jakuchū|25.0%|
 |...|...|
 
-### openai + ViT-B-32
+### openai
 
 |Artist name|Accuracy|
 |---|---|
@@ -342,7 +342,7 @@
 
 ## Error analysis on real images (artstation)
 
-### laion2b_s34b + ViT-B-32
+### laion2b
 
 |Artist name|Accuracy|
 |---|---|
@@ -358,7 +358,7 @@
 |Krenz Cushart|6.67%|
 |...|...|
 
-### openai + ViT-B-32
+### openai
 
 |Artist name|Accuracy|
 |---|---|
